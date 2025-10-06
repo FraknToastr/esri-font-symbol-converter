@@ -1,0 +1,105 @@
+    <!-- Preview -->
+    <div class="preview-section">
+      <div class="preview-title">Preview</div>
+
+      <div class="preview-split">
+        <!-- Left: Live Preview -->
+        <div class="card">
+          <div class="card-inner" style="position:relative;">
+            <div id="previewCanvasHost"></div>
+          </div>
+        </div>
+
+        <!-- Right: Background & Symbol Controls -->
+        <div class="card" style="border-style:solid">
+          <div class="card-inner" style="flex-direction:column;gap:12px;">
+            <div class="bg-controls">
+
+              <div class="control-block">
+                <div class="control-title">Background Shape</div>
+                <div class="shape-toggle">
+                  <button class="shape-btn active" id="bgShapeCircle">○ Circle</button>
+                  <button class="shape-btn" id="bgShapeSquare">□ Square</button>
+                </div>
+              </div>
+
+              <div class="control-block">
+                <div class="control-title">Background Size</div>
+                <div class="size-row">
+                  <input type="range" id="bgSizeSlider" min="10" max="95" value="60" />
+                  <div class="unit-toggle">
+                    <button class="unit-btn active" id="unitPercent">% </button>
+                    <button class="unit-btn" id="unitPixels">px</button>
+                  </div>
+                </div>
+                <div style="color:#a0aec0;font-size:.85em;margin-top:8px">
+                  <span id="bgSizeLabel">%: 60</span>
+                </div>
+              </div>
+
+              <div class="control-block">
+                <div class="control-title">Position (Background & Symbol)</div>
+
+                <div class="dpad-row">
+                  <!-- Background D-pad -->
+                  <div>
+                    <div style="color:#cbd5e0;font-weight:600;margin-bottom:6px">Background</div>
+                    <div class="dpad">
+                      <div></div>
+                      <button id="dpadUp">⬆️</button>
+                      <div></div>
+                      <button id="dpadLeft">⬅️</button>
+                      <button id="dpadCenter" class="center">⏺️</button>
+                      <button id="dpadRight">➡️</button>
+                      <div></div>
+                      <button id="dpadDown">⬇️</button>
+                      <div></div>
+                    </div>
+                    <div style="color:#a0aec0;font-size:.85em;text-align:center;margin-top:6px">
+                      Offset: <span id="offsetReadout">0, 0</span> px
+                    </div>
+                    <div style="margin-top:8px;display:flex;justify-content:center;">
+                      <button id="dpadCenterToCanvas" class="unit-btn">Centre</button>
+                    </div>
+                  </div>
+
+                  <!-- Symbol D-pad -->
+                  <div>
+                    <div style="color:#cbd5e0;font-weight:600;margin-bottom:6px">Symbol</div>
+                    <div class="dpad">
+                      <div></div>
+                      <button id="symDpadUp">⬆️</button>
+                      <div></div>
+                      <button id="symDpadLeft">⬅️</button>
+                      <button id="symDpadCenter" class="center">⏺️</button>
+                      <button id="symDpadRight">➡️</button>
+                      <div></div>
+                      <button id="symDpadDown">⬇️</button>
+                      <div></div>
+                    </div>
+                    <div style="color:#a0aec0;font-size:.85em;text-align:center;margin-top:6px">
+                      Offset: <span id="symOffsetReadout">0, 0</span> px
+                    </div>
+                    <div style="margin-top:8px;display:flex;justify-content:center;">
+                      <button id="symCenterToCanvas" class="unit-btn">Centre</button>
+                    </div>
+                  </div>
+                </div>
+              </div> <!-- /control-block -->
+            </div> <!-- /bg-controls -->
+          </div> <!-- /card-inner -->
+        </div> <!-- /card -->
+      </div> <!-- /preview-split -->
+
+      <!-- Under-preview unified color control -->
+      <div class="under-preview">
+        <div class="color-toggle">
+          <button class="toggle-btn active" id="colorTargetSymbol">Symbol</button>
+          <button class="toggle-btn" id="colorTargetBackground">Background</button>
+        </div>
+        <input type="color" id="colorInput" value="#000000"/>
+      </div>
+
+      <div class="empty-state" id="previewHint">Enter a character code and click "Generate Preview"</div>
+    </div>
+  </div>

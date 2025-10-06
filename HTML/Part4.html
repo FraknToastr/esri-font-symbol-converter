@@ -1,0 +1,178 @@
+    /* ---------- Center Buttons & D-pad ---------- */
+    const dpadStep = 5;
+
+    function updateOffsetsUI(){
+      offsetReadout.textContent = `${bgOffsetX}, ${bgOffsetY}`;
+      symOffsetReadout.textContent = `${symbolOffsetX}, ${symbolOffsetY}`;
+    }
+
+    function getCanvasMetrics() {
+      const hostW = previewHost.clientWidth || 520;
+      const hostH = previewHost.clientHeight || 288;
+      const topPad = 24;
+      const baseSpan = Math.min(hostW, hostH - topPad);
+      const trueCx = Math.round(hostW / 2);
+      const targetCyLine = Math.round(topPad + baseSpan * 0.25);
+      return { hostW, hostH, topPad, baseSpan, trueCx, targetCyLine };
+    }
+
+    document.getElementById('dpadUp').addEventListener('click', ()=>{ bgOffsetY -= dpadStep; updateOffsetsUI(); renderPreview(); });
+    document.getElementById('dpadDown').addEventListener('click', ()=>{ bgOffsetY += dpadStep; updateOffsetsUI(); renderPreview(); });
+    document.getElementById('dpadLeft').addEventListener('click', ()=>{ bgOffsetX -= dpadStep; updateOffsetsUI(); renderPreview(); });
+    document.getElementById('dpadRight').addEventListener('click', ()=>{ bgOffsetX += dpadStep; updateOffsetsUI(); renderPreview(); });
+    document.getElementById('dpadCenter').addEventListener('click', ()=>{ bgOffsetX=0; bgOffsetY=0; updateOffsetsUI(); renderPreview(); });
+    document.getElementById('dpadCenterToCanvas').addEventListener('click', ()=>{
+      const { targetCyLine } = getCanvasMetrics();
+      const trueCy = Math.round((previewHost.clientHeight || 288) / 2);
+      bgOffsetX = 0;
+      bgOffsetY = trueCy - targetCyLine;
+      updateOffsetsUI();
+      renderPreview();
+    });
+
+    document.getElementById('symDpadUp').addEventListener('click', ()=>{ symbolOffsetY -= dpadStep; updateOffsetsUI(); renderPreview(); });
+    document.getElementById('symDpadDown').addEventListener('click', ()=>{ symbolOffsetY += dpadStep; updateOffsetsUI(); renderPreview(); });
+    document.getElementById('symDpadLeft').addEventListener('click', ()=>{ symbolOffsetX -= dpadStep; updateOffsetsUI(); renderPreview(); });
+    document.getElementById('symDpadRight').addEventListener('click', ()=>{ symbolOffsetX += dpadStep; updateOffsetsUI(); renderPreview(); });
+    document.getElementById('symDpadCenter').addEventListener('click', ()=>{ symbolOffsetX=0; symbolOffsetY=0; updateOffsetsUI(); renderPreview(); });
+    document.getElementById('symCenterToCanvas').addEventListener('click', ()=>{
+      const { targetCyLine } = getCanvasMetrics();
+      const trueCy = Math.round((previewHost.clientHeight || 288) / 2);
+      symbolOffsetX = 0;
+      symbolOffsetY = trueCy - targetCyLine;
+      updateOffsetsUI();
+      renderPreview();
+    });
+
+    /* ---------- Draw Crosshair ---------- */
+    function drawCrosshair(ctx){
+      const w = ctx.canvas.width, h = ctx.canvas.height;
+      ctx.save();
+      ctx.strokeStyle = '#4a556880';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(w/2, 0);
+      ctx.lineTo(w/2, h);
+      ctx.moveTo(0, h/2);
+      ctx.lineTo(w, h/2);
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    /* ---------- Render Preview ---------- */
+    function renderPreview(showCrosshair = true){
+      const canvas = document.getElementById('previewCanvas');
+      const ctx = canvas.getContext('2d');
+      ctx.clearRect(0,0,canvas.width,canvas.height);
+
+      if(showCrosshair) drawCrosshair(ctx);
+      if(!currentFont || !keyInput.value) return;
+
+      const font = loadedOpentypeFonts[currentFont];
+      if(!font) return;
+
+      const glyph = font.charToGlyph(keyInput.value);
+      const size = parseInt(document.getElementById('sizeInput').value || 512);
+      const scale = size / font.unitsPerEm;
+      const centerX = canvas.width / 2;
+      const centerY = canvas.height / 2;
+
+      ctx.save();
+
+      // Draw background if enabled
+      if(bgEnabled){
+        ctx.fillStyle = bgColor;
+        const bgScaled = (bgSizeUnit === '%') ? (bgSizeValue/100) * size : bgSizeValue;
+        if(bgShape === 'circle'){
+          ctx.beginPath();
+          ctx.arc(centerX + bgOffsetX, centerY + bgOffsetY, bgScaled/2, 0, Math.PI*2);
+          ctx.fill();
+        } else if(bgShape === 'square'){
+          const half = bgScaled / 2;
+          ctx.fillRect(centerX - half + bgOffsetX, centerY - half + bgOffsetY, bgScaled, bgScaled);
+        }
+      }
+
+      // Draw symbol (not mirrored)
+      ctx.fillStyle = symbolColor;
+      const path = glyph.getPath(centerX + symbolOffsetX, centerY + symbolOffsetY, size * 0.6);
+      path.draw(ctx);
+
+      ctx.restore();
+    }
+
+    /* ---------- Export (no crosshair, no mirroring) ---------- */
+    function downloadPNG(){
+      renderPreview(false);
+      const dataURL = previewCanvas.toDataURL('image/png');
+      renderPreview(true);
+      const a = document.createElement('a');
+      a.href = dataURL;
+      a.download = 'symbol.png';
+      a.click();
+    }
+
+    function downloadSVG(){
+      renderPreview(false);
+      if(!currentFont || !currentCharCode){
+        alert('Please generate a preview first.');
+        renderPreview(true);
+        return;
+      }
+
+      const font = loadedOpentypeFonts[currentFont];
+      const glyph = font.charToGlyph(String.fromCharCode(currentCharCode));
+      const size = parseInt(document.getElementById('sizeInput').value || 512);
+      const center = size / 2;
+
+      const path = glyph.getPath(0, 0, size * 0.6);
+      const pathData = path.toPathData(2);
+
+      const ascent = font.ascender / font.unitsPerEm * size * 0.6;
+
+      // Background (only if enabled)
+      let bgElement = '';
+      if(bgEnabled){
+        const bgScaled = (bgSizeUnit === '%') ? (bgSizeValue/100)*size : bgSizeValue;
+        if(bgShape === 'circle'){
+          bgElement = `<circle cx="${center + bgOffsetX}" cy="${center + bgOffsetY}" r="${bgScaled/2}" fill="${bgColor}" />`;
+        } else {
+          const half = bgScaled/2;
+          bgElement = `<rect x="${center - half + bgOffsetX}" y="${center - half + bgOffsetY}" width="${bgScaled}" height="${bgScaled}" fill="${bgColor}" />`;
+        }
+      }
+
+      const glyphElement = `
+        <g transform="translate(${center + symbolOffsetX}, ${center + symbolOffsetY}) scale(1,-1)">
+          <path d="${pathData}" fill="${symbolColor}"/>
+        </g>
+      `;
+
+      const svg = `
+        <svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">
+          ${bgElement}
+          ${glyphElement}
+        </svg>
+      `;
+
+      const blob = new Blob([svg], { type: 'image/svg+xml' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'symbol.svg';
+      a.click();
+      URL.revokeObjectURL(url);
+      renderPreview(true);
+    }
+
+    /* ---------- Init ---------- */
+    window.addEventListener('load', ()=>{
+      reconstructLoadingBanner(0);
+      fontFileInput.addEventListener('change', loadFontFiles);
+      colorInput.value = symbolColor;
+      updateOffsetsUI();
+      renderPreview();
+    });
+  </script>
+</body>
+</html>
