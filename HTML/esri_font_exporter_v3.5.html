@@ -30,12 +30,10 @@
     .clear-font-btn{background:#667eea;color:#fff;border:none;padding:8px 16px;border-radius:6px;cursor:pointer;font-size:.85em;font-weight:600;z-index:1;height:44px}
     .clear-font-btn:hover{background:#5568d3}
 
-    /* Unified row for Key, Decimal, Hex, Preview, Download (equal widths) */
-    .input-row{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:20px;align-items:end}
+    /* Unified row for Key, Decimal, Hex, Download (equal widths) */
+    .input-row{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px;align-items:end}
     .btn-inline{width:100%;height:44px;border:none;border-radius:8px;font-weight:700;cursor:pointer;transition:.15s}
     .btn-inline:active{transform:translateY(1px)}
-    .btn-preview{background:#667eea;color:#fff}
-    .btn-preview:hover{background:#5568d3}
     .btn-download{background:#48bb78;color:#fff}
     .btn-download:hover{background:#38a169}
     .btn-download:disabled{background:#4a5568;cursor:not-allowed}
@@ -51,10 +49,11 @@
     .toggle-group{display:flex;gap:10px;align-items:center}
     .toggle-btn{flex:1;padding:10px 20px;border:2px solid #4a5568;background:#2d3748;color:#e2e8f0;border-radius:8px;cursor:pointer;font-weight:600;transition:.2s}
     .toggle-btn.active{background:#667eea;color:#fff;border-color:#667eea}
+    .toggle-btn:disabled{opacity:.45;cursor:not-allowed}
 
     .preview-section{margin-top:30px}
     .preview-title{font-size:1.1em;font-weight:600;color:#e2e8f0;margin-bottom:15px}
-    .preview-split{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+    .preview-split{display:grid;grid-template-columns:minmax(0,0.7fr) minmax(0,1.3fr);gap:16px}
     .card{background:#1a202c;border:2px dashed #4a5568;border-radius:12px;min-height:320px;padding:16px;display:flex;align-items:flex-start;justify-content:center;position:relative}
     .card-inner{width:100%;max-width:520px;min-height:288px;display:flex;align-items:flex-start;justify-content:center}
     #previewCanvasHost{width:100%;height:288px;border-radius:10px;position:relative}
@@ -65,6 +64,9 @@
     .shape-toggle{display:flex;gap:8px}
     .shape-btn{flex:1;padding:10px;border:2px solid #4a5568;background:#1a202c;color:#e2e8f0;border-radius:8px;cursor:pointer;font-weight:700}
     .shape-btn.active{border-color:#667eea;background:#2d3478a0}
+    .border-settings{margin-top:10px;display:none;flex-direction:column;gap:8px}
+    .border-settings label{margin-bottom:4px}
+    .border-settings input{width:100%;padding:10px 12px;border:2px solid #4a5568;background:#1a202c;color:#e2e8f0;border-radius:8px}
     .size-row{display:grid;grid-template-columns:1fr auto;align-items:center;gap:10px}
     .size-row .unit-toggle{display:flex;gap:8px}
     .unit-btn{padding:8px 10px;border:2px solid #4a5568;background:#1a202c;color:#e2e8f0;border-radius:8px;cursor:pointer;font-weight:600}
@@ -123,7 +125,7 @@
         <input type="hidden" id="fontSelect"/>
       </div>
 
-      <!-- Unified Inputs and Buttons Row -->
+      <!-- Unified Inputs and Download -->
       <div class="input-row">
         <div class="input-group">
           <label for="keyInput">Key</label>
@@ -137,7 +139,6 @@
           <label for="hexInput">Hex</label>
           <input type="text" id="hexInput" placeholder="41" maxlength="6"/>
         </div>
-        <button class="btn-inline btn-preview" id="previewBtn" onclick="generatePreview()">Preview</button>
         <button class="btn-inline btn-download" id="downloadBtn" onclick="downloadSymbol()" disabled>Download</button>
       </div>
 
@@ -255,15 +256,20 @@
             <div class="bg-controls">
 
               <div class="control-block">
-                <div class="control-title">Background Shape</div>
-                <div class="shape-toggle">
-                  <button class="shape-btn active" id="bgShapeCircle">○ Circle</button>
-                  <button class="shape-btn" id="bgShapeSquare">□ Square</button>
-                </div>
+              <div class="control-title">Background Shape</div>
+              <div class="shape-toggle">
+                <button class="shape-btn active" id="bgShapeCircle">○ Circle</button>
+                <button class="shape-btn" id="bgShapeSquare">□ Square</button>
+                <button class="shape-btn" id="bgBorderToggle">⬚ Border</button>
               </div>
+              <div class="border-settings" id="borderControls">
+                <label for="borderWidthInput">Border Width (px)</label>
+                <input type="number" id="borderWidthInput" min="1" max="200" value="4"/>
+              </div>
+            </div>
 
-              <div class="control-block">
-                <div class="control-title">Background Size</div>
+            <div class="control-block">
+              <div class="control-title">Background Size</div>
                 <div class="size-row">
                   <input type="range" id="bgSizeSlider" min="10" max="95" value="60" />
                   <div class="unit-toggle">
@@ -335,11 +341,12 @@
         <div class="color-toggle">
           <button class="toggle-btn active" id="colorTargetSymbol">Symbol</button>
           <button class="toggle-btn" id="colorTargetBackground">Background</button>
+          <button class="toggle-btn" id="colorTargetBorder">Border</button>
         </div>
         <input type="color" id="colorInput" value="#000000"/>
       </div>
 
-      <div class="empty-state" id="previewHint">Enter a character code and click "Generate Preview"</div>
+      <div class="empty-state" id="previewHint">Enter a character code to see the preview</div>
     </div>
   </div>
   <script>
@@ -357,9 +364,13 @@
     let colorTarget = 'symbol';
 
     // Background render options
+    let bgEnabled = true;
     let bgShape = 'circle';
     let bgSizeUnit = '%';
     let bgSizeValue = 60;
+    let bgBorderEnabled = false;
+    let bgBorderColor = '#1a202c';
+    let bgBorderWidth = 4;
 
     // Independent offsets
     let bgOffsetX = 0, bgOffsetY = 0;
@@ -375,6 +386,7 @@
     const colorInput = document.getElementById('colorInput');
     const colorTargetSymbolBtn = document.getElementById('colorTargetSymbol');
     const colorTargetBgBtn = document.getElementById('colorTargetBackground');
+    const colorTargetBorderBtn = document.getElementById('colorTargetBorder');
     const previewHost = document.getElementById('previewCanvasHost');
     const previewHint = document.getElementById('previewHint');
     const bgShapeCircleBtn = document.getElementById('bgShapeCircle');
@@ -385,6 +397,78 @@
     const bgSizeLabel = document.getElementById('bgSizeLabel');
     const offsetReadout = document.getElementById('offsetReadout');
     const symOffsetReadout = document.getElementById('symOffsetReadout');
+    const downloadBtn = document.getElementById('downloadBtn');
+    const bgBorderToggleBtn = document.getElementById('bgBorderToggle');
+    const borderControls = document.getElementById('borderControls');
+    const borderWidthInput = document.getElementById('borderWidthInput');
+    function setColorTarget(target){
+      if(target==='background' && !bgEnabled){ target = 'symbol'; }
+      if(target==='border' && (!bgEnabled || !bgBorderEnabled)){ target = bgEnabled ? 'background' : 'symbol'; }
+      colorTarget = target;
+      colorTargetSymbolBtn.classList.toggle('active', target==='symbol');
+      colorTargetBgBtn.classList.toggle('active', target==='background');
+      colorTargetBorderBtn.classList.toggle('active', target==='border');
+      if(target==='symbol'){ colorInput.value = symbolColor; }
+      else if(target==='background'){ colorInput.value = bgColor; }
+      else if(target==='border'){ colorInput.value = bgBorderColor; }
+      syncColorTargetButtons();
+    }
+
+    function syncColorTargetButtons(){
+      colorTargetBgBtn.disabled = !bgEnabled;
+      colorTargetBorderBtn.disabled = !(bgEnabled && bgBorderEnabled);
+    }
+
+    function ensureValidColorTarget(){
+      if(colorTarget==='background' && !bgEnabled){
+        setColorTarget('symbol');
+      } else if(colorTarget==='border' && (!bgEnabled || !bgBorderEnabled)){
+        setColorTarget(bgEnabled ? 'background' : 'symbol');
+      }
+    }
+
+    function syncBorderUI(){
+      bgBorderToggleBtn.classList.toggle('active', bgEnabled && bgBorderEnabled);
+      bgBorderToggleBtn.disabled = !bgEnabled;
+      const borderActive = bgEnabled && bgBorderEnabled;
+      borderControls.style.display = borderActive ? 'flex' : 'none';
+      borderWidthInput.disabled = !borderActive;
+      borderWidthInput.value = bgBorderWidth;
+      syncColorTargetButtons();
+      ensureValidColorTarget();
+    }
+
+    function setBorderEnabled(enabled){
+      bgBorderEnabled = enabled && bgEnabled;
+      syncBorderUI();
+      if(bgBorderEnabled){
+        setColorTarget('border');
+      }
+      renderPreview();
+    }
+
+    function syncBackgroundUI(){
+      bgShapeCircleBtn.classList.toggle('active', bgEnabled && bgShape==='circle');
+      bgShapeSquareBtn.classList.toggle('active', bgEnabled && bgShape==='square');
+      bgShapeCircleBtn.setAttribute('aria-pressed', bgEnabled && bgShape==='circle');
+      bgShapeSquareBtn.setAttribute('aria-pressed', bgEnabled && bgShape==='square');
+      syncBorderUI();
+    }
+
+    function toggleBackgroundShape(shape){
+      if(bgShape === shape && bgEnabled){
+        bgEnabled = false;
+      } else {
+        bgShape = shape;
+        bgEnabled = true;
+      }
+      if(!bgEnabled && bgBorderEnabled){
+        bgBorderEnabled = false;
+      }
+      syncBackgroundUI();
+      ensureValidColorTarget();
+      renderPreview();
+    }
 
     /* ---------- Loader banner ---------- */
     function reconstructLoadingBanner(totalFontCount=0){
@@ -439,11 +523,13 @@
       fontDropdown.style.display = 'none';
       clearFontBtn.style.display = 'block';
       renderPreview();
+      updateDownloadAvailability();
     }
 
     function clearFontSelection(){
       fontSearch.value=''; fontSelect.value=''; currentFont=null;
       clearFontBtn.style.display='none'; populateFontDropdown(''); fontDropdown.style.display='block'; fontSearch.focus();
+      updateDownloadAvailability();
     }
 
     fontSearch.addEventListener('focus', function(){ populateFontDropdown(this.value); fontDropdown.style.display='block';});
@@ -471,10 +557,26 @@
     const keyboard = document.getElementById('onscreenKeyboard');
     let isShifted = false;
 
+    function updateDownloadAvailability(){
+      const decimalValue = parseInt(decimalInput.value,10);
+      if(Number.isFinite(decimalValue)){
+        currentCharCode = decimalValue;
+      } else {
+        currentCharCode = null;
+      }
+      downloadBtn.disabled = !(currentFont && Number.isFinite(decimalValue));
+    }
+
     // Sync three inputs both ways
     keyInput.addEventListener('input', ()=>{
       const v = keyInput.value;
-      if(!v){ decimalInput.value=''; hexInput.value=''; renderPreview(); return; }
+      if(!v){
+        decimalInput.value='';
+        hexInput.value='';
+        renderPreview();
+        updateDownloadAvailability();
+        return;
+      }
       let code;
       if (v.toLowerCase()==='space') code = 32;
       else if (v.toUpperCase().startsWith('U+') && v.length>2) code = parseInt(v.substring(2),16);
@@ -484,6 +586,7 @@
         hexInput.value = code.toString(16).toUpperCase().padStart(4,'0');
       }
       renderPreview();
+      updateDownloadAvailability();
     });
     decimalInput.addEventListener('input', ()=>{
       const d = parseInt(decimalInput.value,10);
@@ -492,6 +595,7 @@
         hexInput.value = d.toString(16).toUpperCase().padStart(4,'0');
       } else { hexInput.value=''; keyInput.value=''; }
       renderPreview();
+      updateDownloadAvailability();
     });
     hexInput.addEventListener('input', ()=>{
       const h = parseInt(hexInput.value,16);
@@ -500,6 +604,7 @@
         keyInput.value = (h===32) ? 'Space' : String.fromCodePoint(h);
       } else { decimalInput.value=''; keyInput.value=''; }
       renderPreview();
+      updateDownloadAvailability();
     });
 
     function updateKeyboardLabels(){
@@ -557,58 +662,126 @@
     /* ---------- Preview Rendering (SVG in host) ---------- */
     function escapeXml(s){ return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 
-    function renderPreview(){
-      const charVal = decimalInput.value ? String.fromCodePoint(parseInt(decimalInput.value,10)) : '';
-      if(!currentFont || !charVal){
-        previewHost.innerHTML='';
-        previewHint.style.display='block';
-        return;
+    function computeLayout(width, height){
+      const topPad = Math.round(height * 0.08);
+      const availableHeight = Math.max(1, height - topPad);
+      const baseSpan = Math.max(1, Math.min(width, availableHeight));
+      const centreX = Math.round(width / 2);
+      const centreLine = Math.round(topPad + baseSpan * 0.25);
+      const bgSizePx = (bgSizeUnit === '%')
+        ? Math.max(8, Math.round(baseSpan * (bgSizeValue / 100)))
+        : Math.max(8, Math.round(bgSizeValue));
+      const symbolFontSize = Math.round(baseSpan * 0.35);
+
+      return {
+        width,
+        height,
+        centreX,
+        centreY: centreLine,
+        crosshair: `
+          <line x1="0" y1="${Math.round(height/2)}" x2="${width}" y2="${Math.round(height/2)}" stroke="#a0aec0" stroke-width="1" stroke-dasharray="4 4" opacity="0.6"/>
+          <line x1="${centreX}" y1="0" x2="${centreX}" y2="${height}" stroke="#a0aec0" stroke-width="1" stroke-dasharray="4 4" opacity="0.6"/>
+        `,
+        background: {
+          cx: centreX + bgOffsetX,
+          cy: centreLine + bgOffsetY,
+          size: bgSizePx
+        },
+        symbol: {
+          cx: centreX + symbolOffsetX,
+          cy: centreLine + symbolOffsetY,
+          fontSize: symbolFontSize
+        }
+      };
+    }
+
+    function buildBackgroundMarkup(layout){
+      if(!bgEnabled){ return ''; }
+      const { cx, cy, size } = layout.background;
+      const strokeLineJoin = (bgBorderEnabled && bgShape === 'square') ? ' stroke-linejoin="round"' : '';
+      const strokeAttrs = bgBorderEnabled
+        ? ` stroke="${bgBorderColor}" stroke-width="${bgBorderWidth}"${strokeLineJoin}`
+        : ' stroke="none"';
+      if(bgShape === 'circle'){
+        return `<circle cx="${cx}" cy="${cy}" r="${Math.round(size/2)}" fill="${bgColor}"${strokeAttrs}/>`;
       }
-      previewHint.style.display='none';
+      if(bgShape === 'square'){
+        const half = Math.round(size / 2);
+        return `<rect x="${Math.round(cx - half)}" y="${Math.round(cy - half)}" width="${size}" height="${size}" rx="${Math.round(size*0.1)}" fill="${bgColor}"${strokeAttrs}/>`;
+      }
+      return '';
+    }
 
-      const hostW = previewHost.clientWidth || 520;
-      const hostH = previewHost.clientHeight || 288;
+    function buildGlyphMarkup(font, charVal, symbolLayout){
+      try{
+        const glyph = font.charToGlyph(charVal);
+        if(!glyph || glyph.index === 0){ return null; }
+        const basePath = glyph.getPath(0, 0, symbolLayout.fontSize);
+        const pathData = basePath.toPathData(3);
+        const bounds = basePath.getBoundingBox();
+        const centerX = (bounds.x1 + bounds.x2) / 2;
+        const centerY = (bounds.y1 + bounds.y2) / 2;
+        const translateToCenter = `translate(${(-centerX).toFixed(2)}, ${(-centerY).toFixed(2)})`;
+        const translateToTarget = `translate(${symbolLayout.cx.toFixed(2)}, ${symbolLayout.cy.toFixed(2)})`;
+        return `
+          <g transform="${translateToTarget} scale(1,-1) ${translateToCenter}">
+            <path d="${pathData}" fill="${symbolColor}"/>
+          </g>
+        `;
+      }catch(err){
+        console.error('Failed to convert glyph to path', err);
+        return null;
+      }
+    }
 
-      const topPad = 24;
-      const baseSpan = Math.min(hostW, hostH - topPad);
-
-      const trueCx = Math.round(hostW/2);
-      const trueCy = Math.round(hostH/2);
-
-      const bgCx = trueCx + bgOffsetX;
-      const bgCy = Math.round(topPad + baseSpan * 0.25) + bgOffsetY;
-
-      const symCx = trueCx + symbolOffsetX;
-      const symCy = Math.round(topPad + baseSpan * 0.25) + symbolOffsetY;
-
-      const bgPx = (bgSizeUnit==='%') ? Math.max(8, Math.round(baseSpan * (bgSizeValue/100)))
-                                       : Math.max(8, Math.round(bgSizeValue));
-      const symbolPx = Math.round(baseSpan * 0.35);
-
-      const crosshair = `
-        <line x1="0" y1="${trueCy}" x2="${hostW}" y2="${trueCy}" stroke="#a0aec0" stroke-width="1" stroke-dasharray="4 4" opacity="0.6"/>
-        <line x1="${trueCx}" y1="0" x2="${trueCx}" y2="${hostH}" stroke="#a0aec0" stroke-width="1" stroke-dasharray="4 4" opacity="0.6"/>
+    function buildSymbolMarkup(layout, { useGlyph } = {}){
+      const code = parseInt(decimalInput.value, 10);
+      if(!Number.isFinite(code)){ return null; }
+      const charVal = String.fromCodePoint(code);
+      let glyphMarkup = null;
+      if(useGlyph && loadedOpentypeFonts[currentFont]){
+        glyphMarkup = buildGlyphMarkup(loadedOpentypeFonts[currentFont], charVal, layout.symbol);
+      }
+      if(glyphMarkup){
+        return glyphMarkup;
+      }
+      return `
+        <text x="${layout.symbol.cx}" y="${layout.symbol.cy}" fill="${symbolColor}"
+              font-family="${currentFont}, sans-serif"
+              font-size="${layout.symbol.fontSize}"
+              text-anchor="middle" dominant-baseline="central">${escapeXml(charVal)}</text>
       `;
+    }
 
-      const bgNode = bgShape==='circle'
-        ? `<circle cx="${bgCx}" cy="${bgCy}" r="${Math.round(bgPx/2)}" fill="${bgColor}"/>`
-        : `<rect x="${Math.round(bgCx - bgPx/2)}" y="${Math.round(bgCy - bgPx/2)}" width="${bgPx}" height="${bgPx}" rx="${Math.round(bgPx*0.1)}" fill="${bgColor}"/>`;
-
-      const svg = `
-        <svg width="${hostW}" height="${hostH}" viewBox="0 0 ${hostW} ${hostH}" xmlns="http://www.w3.org/2000/svg">
-          ${crosshair}
-          ${bgNode}
-          <text
-            x="${symCx}" y="${symCy}"
-            fill="${symbolColor}"
-            font-family="${currentFont}, sans-serif"
-            font-size="${symbolPx}"
-            text-anchor="middle"
-            dominant-baseline="central"
-          >${escapeXml(charVal)}</text>
+    function composeSymbolSVG(width, height, { includeCrosshair = false, useGlyph = false } = {}){
+      if(!currentFont){ return null; }
+      const layout = computeLayout(width, height);
+      const symbolMarkup = buildSymbolMarkup(layout, { useGlyph });
+      if(!symbolMarkup){
+        return null;
+      }
+      const bgMarkup = buildBackgroundMarkup(layout);
+      const crosshairMarkup = includeCrosshair ? layout.crosshair : '';
+      return `
+        <svg width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" xmlns="http://www.w3.org/2000/svg">
+          ${crosshairMarkup}
+          ${bgMarkup}
+          ${symbolMarkup}
         </svg>
-      `;
-      previewHost.innerHTML = svg;
+      `.trim();
+    }
+
+    function renderPreview(){
+      const width = previewHost.clientWidth || 520;
+      const height = previewHost.clientHeight || 288;
+      const svgMarkup = composeSymbolSVG(width, height, { includeCrosshair: true, useGlyph: false });
+      if(!svgMarkup){
+        previewHost.innerHTML = '';
+        previewHint.style.display = 'block';
+      } else {
+        previewHint.style.display = 'none';
+        previewHost.innerHTML = svgMarkup;
+      }
     }
 
     /* ---------- D-pads & Centre buttons ---------- */
@@ -627,11 +800,13 @@
     function getCanvasMetrics() {
       const hostW = previewHost.clientWidth || 520;
       const hostH = previewHost.clientHeight || 288;
-      const topPad = 24;
-      const baseSpan = Math.min(hostW, hostH - topPad);
-      const trueCx = Math.round(hostW / 2);
-      const targetCyLine = Math.round(topPad + baseSpan * 0.25);
-      return { hostW, hostH, topPad, baseSpan, trueCx, targetCyLine };
+      const layout = computeLayout(hostW, hostH);
+      return {
+        hostW,
+        hostH,
+        trueCx: layout.centreX,
+        targetCyLine: layout.centreY
+      };
     }
 
     document.getElementById('dpadCenterToCanvas')?.addEventListener('click', () => {
@@ -657,105 +832,32 @@
       symOffsetReadout.textContent = `${symbolOffsetX}, ${symbolOffsetY}`;
     }
 
-    /* ---------- Generate Preview (alerts retained) ---------- */
-    function generatePreview(){
-      const selectedFont = fontSelect.value;
-      const decimalCode = parseInt(decimalInput.value);
-      if(!selectedFont){ alert('Please select a font'); return; }
-      if(Number.isNaN(decimalCode)){ alert('Please enter a valid character code'); return; }
-      currentFont = selectedFont; currentCharCode = decimalCode;
-      renderPreview();
-      document.getElementById('downloadBtn').disabled=false;
-    }
-
-    /* ---------- Downloads (crosshair excluded; SVG fixed no-mirroring) ---------- */
+    /* ---------- Downloads ---------- */
     function downloadSymbol(){
-      if (!currentFont || !currentCharCode){ alert('Please generate a preview first'); return; }
+      if (!currentFont || !currentCharCode){ alert('Please select a font and enter a valid character code before downloading.'); return; }
       if (currentFormat==='svg'){ downloadSVG(); } else { downloadPNG(); }
     }
 
-    // More accurate SVG export using glyph paths (no mirroring; excludes crosshair)
     function downloadSVG(){
-      const size = parseInt(document.getElementById('svgSizeInput').value) || 512;
-      const font = loadedOpentypeFonts[currentFont];
-      if(!font){ alert('Error: Font data not found. Please reload the font.'); return; }
-
-      const character = String.fromCodePoint(currentCharCode);
-      const glyph = font.charToGlyph(character);
-      if(!glyph || glyph.index===0){ alert('Character not found in font. Glyph index: '+(glyph?.index)); return; }
-
-      const topPad = Math.round(size*0.08);
-      const baseSpan = size - topPad;
-      const trueCx = Math.round(size/2);
-
-      const bgCxExp = trueCx + bgOffsetX;
-      const bgCyExp = Math.round(topPad + baseSpan*0.25) + bgOffsetY;
-      const bgPxExp = (bgSizeUnit==='%') ? Math.max(8, Math.round(size * (bgSizeValue/100)))
-                                         : Math.max(8, Math.min(size, Math.round(bgSizeValue)));
-
-      const bgNode = (bgShape==='circle')
-        ? `<circle cx="${bgCxExp}" cy="${bgCyExp}" r="${Math.round(bgPxExp/2)}" fill="${bgColor}"/>`
-        : `<rect x="${Math.round(bgCxExp - bgPxExp/2)}" y="${Math.round(bgCyExp - bgPxExp/2)}" width="${bgPxExp}" height="${bgPxExp}" rx="${Math.round(bgPxExp*0.1)}" fill="${bgColor}"/>`;
-
-      const symCxExp = trueCx + symbolOffsetX;
-      const symCyExp = Math.round(topPad + baseSpan*0.25) + symbolOffsetY;
-
-      const fontSize = Math.round(size * 0.35);
-      const scale = fontSize / font.unitsPerEm;
-      const path = glyph.getPath(0,0,fontSize);
-      const pathData = path.toPathData(2);
-      const bounds = glyph.getBoundingBox();
-      const glyphW = (bounds.x2-bounds.x1)*scale;
-      const glyphH = (bounds.y2-bounds.y1)*scale;
-
-      // Center glyph at (symCxExp, symCyExp); flip Y with scale(1,-1)
-      const x = (symCxExp - glyphW/2) - (bounds.x1*scale);
-      const y = (symCyExp + glyphH/2) - ((bounds.y2)*scale);
-
-      const svg = `<?xml version="1.0" encoding="UTF-8"?>
-<svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}" xmlns="http://www.w3.org/2000/svg">
-  ${bgNode}
-  <g transform="translate(${x.toFixed(2)}, ${y.toFixed(2)}) scale(1, -1)">
-    <path d="${pathData}" fill="${symbolColor}"/>
-  </g>
-</svg>`;
-      const blob = new Blob([svg], {type:'image/svg+xml'});
+      const size = parseInt(document.getElementById('svgSizeInput').value, 10) || 512;
+      const svgMarkup = composeSymbolSVG(size, size, { includeCrosshair: false, useGlyph: true });
+      if(!svgMarkup){
+        alert('Unable to build SVG for this character. Please ensure the glyph exists in the selected font.');
+        return;
+      }
+      const blob = new Blob([svgMarkup], {type:'image/svg+xml'});
       downloadBlob(blob, `${currentFont.replace(/\s+/g,'_')}_${currentCharCode}.svg`);
     }
 
-    // Simple PNG export: draw generated SVG onto canvas (excludes crosshair by design)
     function downloadPNG(){
-      const size = parseInt(document.getElementById('sizeInput').value) || 512;
+      const size = parseInt(document.getElementById('sizeInput').value, 10) || 512;
+      const svgMarkup = composeSymbolSVG(size, size, { includeCrosshair: false, useGlyph: true });
+      if(!svgMarkup){
+        alert('Unable to build PNG for this character. Please ensure the glyph exists in the selected font.');
+        return;
+      }
 
-      // Build an export SVG (without crosshair), then rasterize to PNG
-      const topPad = Math.round(size*0.08);
-      const baseSpan = size - topPad;
-      const trueCx = Math.round(size/2);
-
-      const bgCxExp = trueCx + bgOffsetX;
-      const bgCyExp = Math.round(topPad + baseSpan*0.25) + bgOffsetY;
-      const bgPxExp = (bgSizeUnit==='%') ? Math.max(8, Math.round(size * (bgSizeValue/100)))
-                                         : Math.max(8, Math.min(size, Math.round(bgSizeValue)));
-
-      const bgNode = (bgShape==='circle')
-        ? `<circle cx="${bgCxExp}" cy="${bgCyExp}" r="${Math.round(bgPxExp/2)}" fill="${bgColor}"/>`
-        : `<rect x="${Math.round(bgCxExp - bgPxExp/2)}" y="${Math.round(bgCyExp - bgPxExp/2)}" width="${bgPxExp}" height="${bgPxExp}" rx="${Math.round(bgPxExp*0.1)}" fill="${bgColor}"/>`;
-
-      const symCxExp = trueCx + symbolOffsetX;
-      const symCyExp = Math.round(topPad + baseSpan*0.25) + symbolOffsetY;
-
-      const charVal = String.fromCodePoint(currentCharCode);
-      const svgExport = `
-        <svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">
-          ${bgNode}
-          <text x="${symCxExp}" y="${symCyExp}" fill="${symbolColor}"
-                font-family="${currentFont}, sans-serif"
-                font-size="${Math.round(size*0.35)}"
-                text-anchor="middle" dominant-baseline="central">${charVal.replace(/&/g,'&amp;')}</text>
-        </svg>
-      `.trim();
-
-      const svgBlob = new Blob([svgExport], {type:'image/svg+xml'});
+      const svgBlob = new Blob([svgMarkup], {type:'image/svg+xml'});
       const url = URL.createObjectURL(svgBlob);
 
       const img = new Image();
@@ -769,6 +871,10 @@
           downloadBlob(b, `${currentFont.replace(/\s+/g,'_')}_${currentCharCode}.png`);
           URL.revokeObjectURL(url);
         });
+      };
+      img.onerror = () => {
+        URL.revokeObjectURL(url);
+        alert('Unable to rasterise the symbol SVG. Please try again.');
       };
       img.src = url;
     }
@@ -817,9 +923,26 @@
     window.addEventListener('load', ()=>{
       reconstructLoadingBanner(0);
       fontFileInput.addEventListener('change', loadFontFiles);
-      document.getElementById('colorTargetSymbol').addEventListener('click', ()=>{ colorTarget='symbol'; colorTargetSymbolBtn.classList.add('active'); colorTargetBgBtn.classList.remove('active'); colorInput.value=symbolColor; });
-      document.getElementById('colorTargetBackground').addEventListener('click', ()=>{ colorTarget='background'; colorTargetBgBtn.classList.add('active'); colorTargetSymbolBtn.classList.remove('active'); colorInput.value=bgColor; });
-      colorInput.addEventListener('input', ()=>{ if(colorTarget==='symbol'){ symbolColor=colorInput.value; } else { bgColor=colorInput.value; } renderPreview(); });
+      colorTargetSymbolBtn.addEventListener('click', ()=>setColorTarget('symbol'));
+      colorTargetBgBtn.addEventListener('click', ()=>setColorTarget('background'));
+      colorTargetBorderBtn.addEventListener('click', ()=>setColorTarget('border'));
+      colorInput.addEventListener('input', ()=>{
+        const val = colorInput.value;
+        if(colorTarget==='symbol'){ symbolColor = val; }
+        else if(colorTarget==='background'){ bgColor = val; }
+        else if(colorTarget==='border'){ bgBorderColor = val; }
+        renderPreview();
+      });
+
+      bgBorderToggleBtn.addEventListener('click', ()=>{ setBorderEnabled(!bgBorderEnabled); });
+      borderWidthInput.addEventListener('input', ()=>{
+        let width = parseInt(borderWidthInput.value,10);
+        if(!Number.isFinite(width)){ width = bgBorderWidth; }
+        width = Math.max(1, Math.min(200, width));
+        bgBorderWidth = width;
+        borderWidthInput.value = bgBorderWidth;
+        if(bgBorderEnabled){ renderPreview(); }
+      });
 
       // BG size unit + slider
       document.getElementById('unitPercent').addEventListener('click', ()=>{
@@ -834,12 +957,15 @@
       function updateBgSizeLabel(){ bgSizeLabel.textContent = (bgSizeUnit==='%'? '%: ':'px: ') + bgSizeValue; }
 
       // BG shape
-      bgShapeCircleBtn.addEventListener('click', ()=>{ bgShape='circle'; bgShapeCircleBtn.classList.add('active'); bgShapeSquareBtn.classList.remove('active'); renderPreview(); });
-      bgShapeSquareBtn.addEventListener('click', ()=>{ bgShape='square'; bgShapeSquareBtn.classList.add('active'); bgShapeCircleBtn.classList.remove('active'); renderPreview(); });
+      bgShapeCircleBtn.addEventListener('click', ()=>toggleBackgroundShape('circle'));
+      bgShapeSquareBtn.addEventListener('click', ()=>toggleBackgroundShape('square'));
 
+      syncBackgroundUI();
+      setColorTarget('symbol');
       updateKeyboardLabels();
       updateOffsetsUI();
       renderPreview();
+      updateDownloadAvailability();
     });
   </script>
 </body>

@@ -16,15 +16,20 @@
             <div class="bg-controls">
 
               <div class="control-block">
-                <div class="control-title">Background Shape</div>
-                <div class="shape-toggle">
-                  <button class="shape-btn active" id="bgShapeCircle">○ Circle</button>
-                  <button class="shape-btn" id="bgShapeSquare">□ Square</button>
-                </div>
+              <div class="control-title">Background Shape</div>
+              <div class="shape-toggle">
+                <button class="shape-btn active" id="bgShapeCircle">○ Circle</button>
+                <button class="shape-btn" id="bgShapeSquare">□ Square</button>
+                <button class="shape-btn" id="bgBorderToggle">⬚ Border</button>
               </div>
+              <div class="border-settings" id="borderControls">
+                <label for="borderWidthInput">Border Width (px)</label>
+                <input type="number" id="borderWidthInput" min="1" max="200" value="4"/>
+              </div>
+            </div>
 
-              <div class="control-block">
-                <div class="control-title">Background Size</div>
+            <div class="control-block">
+              <div class="control-title">Background Size</div>
                 <div class="size-row">
                   <input type="range" id="bgSizeSlider" min="10" max="95" value="60" />
                   <div class="unit-toggle">
@@ -96,10 +101,11 @@
         <div class="color-toggle">
           <button class="toggle-btn active" id="colorTargetSymbol">Symbol</button>
           <button class="toggle-btn" id="colorTargetBackground">Background</button>
+          <button class="toggle-btn" id="colorTargetBorder">Border</button>
         </div>
         <input type="color" id="colorInput" value="#000000"/>
       </div>
 
-      <div class="empty-state" id="previewHint">Enter a character code and click "Generate Preview"</div>
+      <div class="empty-state" id="previewHint">Enter a character code to see the preview</div>
     </div>
   </div>
