@@ -908,6 +908,197 @@
     const bgBorderToggleBtn = document.getElementById('bgBorderToggle');
     const borderControls = document.getElementById('borderControls');
     const borderWidthInput = document.getElementById('borderWidthInput');
+
+    // Use an offscreen canvas to align glyph export orientation with browser text rendering.
+    const glyphOrientationCache = new WeakMap();
+    let orientationCanvas = null;
+    let orientationCtx = null;
+
+    function ensureOrientationContext() {
+      if (!orientationCanvas) {
+        orientationCanvas = document.createElement('canvas');
+        orientationCanvas.width = orientationCanvas.height = 384;
+        orientationCtx = orientationCanvas.getContext('2d', { willReadFrequently: true });
+      }
+      return orientationCtx;
+    }
+
+    function heuristicFlipForFont(font) {
+      if (!font) { return true; }
+      const asc = font.ascender;
+      const desc = font.descender;
+      if (Number.isFinite(asc) && Number.isFinite(desc)) {
+        if (asc >= 0 && desc <= 0) { return true; }
+        if (asc <= 0 && desc >= 0) { return false; }
+      }
+      const head = font.tables?.head;
+      if (head) {
+        const { yMax, yMin } = head;
+        if (Number.isFinite(yMax) && Number.isFinite(yMin)) {
+          if (yMax >= 0 && yMin <= 0) { return true; }
+          if (yMax <= 0 && yMin >= 0) { return false; }
+        }
+      }
+      return true;
+    }
+
+    function shouldFlipGlyphYAxis(font, fontName, charVal, fontSize) {
+      if (!font) { return true; }
+      let glyphMap = glyphOrientationCache.get(font);
+      if (!glyphMap) {
+        glyphMap = new Map();
+        glyphOrientationCache.set(font, glyphMap);
+      }
+      if (glyphMap.has(charVal)) {
+        return glyphMap.get(charVal);
+      }
+      let flip = heuristicFlipForFont(font);
+      try {
+        flip = detectGlyphOrientation(font, fontName, charVal, fontSize);
+      } catch (err) {
+        console.warn('Failed to resolve glyph orientation', err);
+      }
+      glyphMap.set(charVal, flip);
+      return flip;
+    }
+
+    function detectGlyphOrientation(font, fontName, charVal, fontSize) {
+      const ctx = ensureOrientationContext();
+      if (!ctx || !orientationCanvas) { return true; }
+      const glyph = font.charToGlyph(charVal);
+      if (!glyph || glyph.index === 0) { return true; }
+      const canvasSize = orientationCanvas.width;
+      const evalFontSize = Math.max(32, Math.min(fontSize || canvasSize * 0.6, canvasSize * 0.6));
+      let effectiveName = fontName;
+      if (!effectiveName || !effectiveName.trim()) {
+        const fallbackName = font.names?.fullName;
+        if (fallbackName) {
+          effectiveName = fallbackName.en || '';
+          if (!effectiveName) {
+            for (const key in fallbackName) {
+              if (fallbackName[key]) {
+                effectiveName = fallbackName[key];
+                break;
+              }
+            }
+          }
+        }
+      }
+      if (!effectiveName) { effectiveName = 'sans-serif'; }
+      const safeFontName = String(effectiveName).replace(/"/g, '\\"');
+
+      const referenceProfile = captureTextProfile(ctx, orientationCanvas, safeFontName, charVal, evalFontSize);
+      const glyphPath = glyph.getPath(0, 0, evalFontSize);
+      const bounds = glyphPath.getBoundingBox();
+      const centerX = (bounds.x1 + bounds.x2) / 2;
+      const centerY = (bounds.y1 + bounds.y2) / 2;
+
+      const flipProfile = captureGlyphProfile(ctx, orientationCanvas, glyphPath, centerX, centerY, true);
+      const noFlipProfile = captureGlyphProfile(ctx, orientationCanvas, glyphPath, centerX, centerY, false);
+
+      const diffFlip = compareProfiles(referenceProfile, flipProfile);
+      const diffNoFlip = compareProfiles(referenceProfile, noFlipProfile);
+
+      if (!Number.isFinite(diffFlip) && Number.isFinite(diffNoFlip)) { return false; }
+      if (!Number.isFinite(diffNoFlip) && Number.isFinite(diffFlip)) { return true; }
+      if (!Number.isFinite(diffFlip) && !Number.isFinite(diffNoFlip)) { return heuristicFlipForFont(font); }
+
+      const heuristic = heuristicFlipForFont(font);
+      const epsilon = Math.max(diffFlip, diffNoFlip, 1) * 0.01;
+      if (Math.abs(diffFlip - diffNoFlip) <= epsilon) {
+        return heuristic;
+      }
+
+      return diffFlip <= diffNoFlip;
+    }
+
+    function captureTextProfile(ctx, canvas, fontName, charVal, fontSize) {
+      ctx.save();
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.fillStyle = '#000';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      const lowerName = (fontName || '').toLowerCase();
+      const isGeneric = lowerName === 'sans-serif' || lowerName === 'serif' || lowerName === 'monospace';
+      const family = isGeneric ? fontName : `"${fontName}"`;
+      ctx.font = `${fontSize}px ${family}`;
+      ctx.fillText(charVal, canvas.width / 2, canvas.height / 2);
+      const snapshot = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      ctx.restore();
+      return buildProfile(snapshot);
+    }
+
+    function captureGlyphProfile(ctx, canvas, path, centerX, centerY, flip) {
+      ctx.save();
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.fillStyle = '#000';
+      ctx.translate(canvas.width / 2, canvas.height / 2);
+      if (flip) { ctx.scale(1, -1); }
+      ctx.translate(-centerX, -centerY);
+      path.draw(ctx);
+      const snapshot = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      ctx.restore();
+      return buildProfile(snapshot);
+    }
+
+    function buildProfile(imageData) {
+      if (!imageData) { return null; }
+      const { data, width, height } = imageData;
+      const rows = new Array(height).fill(0);
+      for (let y = 0; y < height; y++) {
+        let sum = 0;
+        for (let x = 0; x < width; x++) {
+          const alpha = data[(y * width + x) * 4 + 3];
+          if (alpha > 0) { sum += alpha; }
+        }
+        rows[y] = sum;
+      }
+      let max = 0;
+      for (let i = 0; i < rows.length; i++) {
+        if (rows[i] > max) { max = rows[i]; }
+      }
+      if (max === 0) { return null; }
+      const threshold = max * 0.03;
+      let top = 0;
+      while (top < rows.length && rows[top] <= threshold) { top++; }
+      let bottom = rows.length - 1;
+      while (bottom >= 0 && rows[bottom] <= threshold) { bottom--; }
+      if (top >= bottom) { return null; }
+      const slice = rows.slice(top, bottom + 1);
+      return resampleProfile(slice, 64);
+    }
+
+    function resampleProfile(values, targetLength) {
+      if (!values || values.length === 0) { return null; }
+      if (values.length === targetLength) { return values.slice(); }
+      const result = new Array(targetLength).fill(0);
+      if (targetLength === 1) {
+        result[0] = values[Math.floor(values.length / 2)];
+        return result;
+      }
+      const scale = (values.length - 1) / (targetLength - 1);
+      for (let i = 0; i < targetLength; i++) {
+        const pos = i * scale;
+        const lower = Math.floor(pos);
+        const upper = Math.min(values.length - 1, lower + 1);
+        const t = pos - lower;
+        result[i] = values[lower] * (1 - t) + values[upper] * t;
+      }
+      return result;
+    }
+
+    function compareProfiles(a, b) {
+      if (!a || !b) { return Number.POSITIVE_INFINITY; }
+      const len = Math.min(a.length, b.length);
+      if (!len) { return Number.POSITIVE_INFINITY; }
+      let diff = 0;
+      for (let i = 0; i < len; i++) {
+        diff += Math.abs(a[i] - b[i]);
+      }
+      return diff / len;
+    }
     function setColorTarget(target) {
       if (target === 'background' && !bgEnabled) { target = 'symbol'; }
       if (target === 'border' && (!bgEnabled || !bgBorderEnabled)) { target = bgEnabled ? 'background' : 'symbol'; }
@@ -1219,7 +1410,7 @@
       return '';
     }
 
-    function buildGlyphMarkup(font, charVal, symbolLayout) {
+    function buildGlyphMarkup(font, fontName, charVal, symbolLayout) {
       try {
         const glyph = font.charToGlyph(charVal);
         if (!glyph || glyph.index === 0) { return null; }
@@ -1230,8 +1421,10 @@
         const centerY = (bounds.y1 + bounds.y2) / 2;
         const translateToCenter = `translate(${(-centerX).toFixed(2)}, ${(-centerY).toFixed(2)})`;
         const translateToTarget = `translate(${symbolLayout.cx.toFixed(2)}, ${symbolLayout.cy.toFixed(2)})`;
+        const flipTransform = shouldFlipGlyphYAxis(font, fontName, charVal, symbolLayout.fontSize) ? 'scale(1,-1)' : '';
+        const transformParts = [translateToTarget, flipTransform, translateToCenter].filter(Boolean);
         return `
-          <g transform="${translateToTarget} scale(1,-1) ${translateToCenter}">
+          <g transform="${transformParts.join(' ')}">
             <path d="${pathData}" fill="${symbolColor}"/>
           </g>
         `;
@@ -1247,7 +1440,7 @@
       const charVal = String.fromCodePoint(code);
       let glyphMarkup = null;
       if (useGlyph && loadedOpentypeFonts[currentFont]) {
-        glyphMarkup = buildGlyphMarkup(loadedOpentypeFonts[currentFont], charVal, layout.symbol);
+        glyphMarkup = buildGlyphMarkup(loadedOpentypeFonts[currentFont], currentFont, charVal, layout.symbol);
       }
       if (glyphMarkup) {
         return glyphMarkup;
