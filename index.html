@@ -1,0 +1,1673 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ESRI Font Symbol Exporter v3.5</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/opentype.js/1.3.4/opentype.min.js"></script>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box
+    }
+
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: #1a202c;
+      min-height: 100vh;
+      padding: 20px
+    }
+
+    .container {
+      max-width: 1100px;
+      margin: 0 auto;
+      background: #2d3748;
+      border-radius: 20px;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, .5);
+      padding: 40px
+    }
+
+    h1 {
+      color: #e2e8f0;
+      margin-bottom: 30px;
+      font-size: 2em
+    }
+
+    .loading-banner {
+      background: #4a5568;
+      padding: 10px 20px;
+      border-radius: 8px;
+      margin-bottom: 20px;
+      text-align: center;
+      color: #e2e8f0;
+      display: flex;
+      flex-direction: column;
+      align-items: center
+    }
+
+    .header-button-row {
+      display: flex;
+      gap: 15px;
+      align-items: center;
+      justify-content: center;
+      width: 100%
+    }
+
+    .load-font-btn,
+    .copy-path-btn {
+      padding: 8px 18px;
+      font-size: .9em;
+      background: #48bb78;
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      font-weight: 600;
+      transition: .2s
+    }
+
+    .load-font-btn:hover,
+    .copy-path-btn:hover {
+      background: #38a169
+    }
+
+    .copy-path-btn.copied {
+      background: #2f855a
+    }
+
+    @keyframes copy-glow {
+      0% {
+        box-shadow: 0 0 0 0 rgba(72, 187, 120, .8)
+      }
+
+      50% {
+        box-shadow: 0 0 10px 5px rgba(72, 187, 120, .5)
+      }
+
+      100% {
+        box-shadow: 0 0 0 0 rgba(72, 187, 120, 0)
+      }
+    }
+
+    .copy-path-btn.glowing {
+      animation: copy-glow .8s ease-out forwards
+    }
+
+    .load-status-bar {
+      width: 100%;
+      text-align: center;
+      margin-top: 5px;
+      font-size: .85em;
+      font-weight: 600;
+      color: #48bb78;
+      min-height: 1.2em
+    }
+
+    .input-section {
+      background: #1a202c;
+      padding: 25px;
+      border-radius: 12px;
+      margin-bottom: 30px
+    }
+
+    .input-group {
+      margin-bottom: 0;
+      position: relative
+    }
+
+    .input-with-button-wrap {
+      display: flex;
+      align-items: center;
+      gap: 10px
+    }
+
+    label {
+      display: block;
+      margin-bottom: 8px;
+      color: #e2e8f0;
+      font-weight: 600;
+      font-size: .9em
+    }
+
+    input,
+    select {
+      width: 100%;
+      padding: 12px 15px;
+      border: 2px solid #4a5568;
+      background: #2d3748;
+      color: #e2e8f0;
+      border-radius: 8px;
+      font-size: 1em;
+      transition: border-color .3s
+    }
+
+    input:focus,
+    select:focus {
+      outline: none;
+      border-color: #667eea
+    }
+
+    input::placeholder {
+      color: #718096
+    }
+
+    .clear-font-btn {
+      background: #667eea;
+      color: #fff;
+      border: none;
+      padding: 8px 16px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: .85em;
+      font-weight: 600;
+      z-index: 1;
+      height: 44px
+    }
+
+    .clear-font-btn:hover {
+      background: #5568d3
+    }
+
+    /* Unified row for Key, Decimal, Hex, Download (equal widths) */
+    .input-row {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 12px;
+      margin-bottom: 20px;
+      align-items: end
+    }
+
+    .btn-inline {
+      width: 100%;
+      height: 44px;
+      border: none;
+      border-radius: 8px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: .15s
+    }
+
+    .btn-inline:active {
+      transform: translateY(1px)
+    }
+
+    .btn-download {
+      background: #48bb78;
+      color: #fff
+    }
+
+    .btn-download:hover {
+      background: #38a169
+    }
+
+    .btn-download:disabled {
+      background: #4a5568;
+      cursor: not-allowed
+    }
+
+    .input-row-three-col {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 15px;
+      margin-bottom: 20px
+    }
+
+    .input-row-three-col .input-group {
+      margin-bottom: 0
+    }
+
+    .font-dropdown {
+      position: absolute;
+      background: #1a202c;
+      border: 2px solid #4a5568;
+      border-radius: 8px;
+      max-height: 300px;
+      overflow-y: auto;
+      width: 100%;
+      margin-top: 5px;
+      box-shadow: 0 10px 25px rgba(0, 0, 0, .5);
+      z-index: 1000
+    }
+
+    .font-option {
+      padding: 12px 15px;
+      cursor: pointer;
+      transition: background .2s;
+      border-bottom: 1px solid #2d3748;
+      color: #e2e8f0
+    }
+
+    .font-option:hover {
+      background: #2d3748
+    }
+
+    .no-results {
+      padding: 15px;
+      text-align: center;
+      color: #718096;
+      font-style: italic
+    }
+
+    .toggle-group {
+      display: flex;
+      gap: 10px;
+      align-items: center
+    }
+
+    .toggle-btn {
+      flex: 1;
+      padding: 10px 20px;
+      border: 2px solid #4a5568;
+      background: #2d3748;
+      color: #e2e8f0;
+      border-radius: 8px;
+      cursor: pointer;
+      font-weight: 600;
+      transition: .2s
+    }
+
+    .toggle-btn.active {
+      background: #667eea;
+      color: #fff;
+      border-color: #667eea
+    }
+
+    .toggle-btn:disabled {
+      opacity: .45;
+      cursor: not-allowed
+    }
+
+    .preview-section {
+      margin-top: 30px
+    }
+
+    .preview-title {
+      font-size: 1.1em;
+      font-weight: 600;
+      color: #e2e8f0;
+      margin-bottom: 15px
+    }
+
+    .preview-split {
+      display: grid;
+      grid-template-columns: minmax(0, 0.7fr) minmax(0, 1.3fr);
+      gap: 16px
+    }
+
+    .card {
+      background: #1a202c;
+      border: 2px dashed #4a5568;
+      border-radius: 12px;
+      min-height: 320px;
+      padding: 16px;
+      display: flex;
+      align-items: flex-start;
+      justify-content: center;
+      position: relative
+    }
+
+    .card-inner {
+      width: 100%;
+      max-width: 520px;
+      min-height: 288px;
+      display: flex;
+      align-items: flex-start;
+      justify-content: center
+    }
+
+    #previewCanvasHost {
+      width: 100%;
+      height: 288px;
+      border-radius: 10px;
+      position: relative
+    }
+
+    .bg-controls {
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      gap: 16px
+    }
+
+    .control-block {
+      background: #2d3748;
+      border: 1px solid #4a5568;
+      border-radius: 10px;
+      padding: 12px
+    }
+
+    .control-title {
+      color: #cbd5e0;
+      font-weight: 700;
+      font-size: .95em;
+      margin-bottom: 8px
+    }
+
+    .shape-toggle {
+      display: flex;
+      gap: 8px
+    }
+
+    .shape-btn {
+      flex: 1;
+      padding: 10px;
+      border: 2px solid #4a5568;
+      background: #1a202c;
+      color: #e2e8f0;
+      border-radius: 8px;
+      cursor: pointer;
+      font-weight: 700
+    }
+
+    .shape-btn.active {
+      border-color: #667eea;
+      background: #2d3478a0
+    }
+
+    .border-settings {
+      margin-top: 10px;
+      display: none;
+      flex-direction: column;
+      gap: 8px
+    }
+
+    .border-settings label {
+      margin-bottom: 4px
+    }
+
+    .border-settings input {
+      width: 100%;
+      padding: 10px 12px;
+      border: 2px solid #4a5568;
+      background: #1a202c;
+      color: #e2e8f0;
+      border-radius: 8px
+    }
+
+    .size-row {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      align-items: center;
+      gap: 10px
+    }
+
+    .size-row .unit-toggle {
+      display: flex;
+      gap: 8px
+    }
+
+    .unit-btn {
+      padding: 8px 10px;
+      border: 2px solid #4a5568;
+      background: #1a202c;
+      color: #e2e8f0;
+      border-radius: 8px;
+      cursor: pointer;
+      font-weight: 600
+    }
+
+    .unit-btn.active {
+      border-color: #667eea;
+      background: #2d3478a0
+    }
+
+    input[type="range"] {
+      width: 100%
+    }
+
+    .dpad-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px
+    }
+
+    .dpad {
+      display: grid;
+      grid-template-columns: 40px 40px 40px;
+      grid-template-rows: 40px 40px 40px;
+      gap: 6px;
+      justify-content: center;
+      align-items: center;
+      margin-top: 6px
+    }
+
+    .dpad button {
+      width: 40px;
+      height: 40px;
+      border: 1px solid #4a5568;
+      background: #1a202c;
+      color: #e2e8f0;
+      border-radius: 8px;
+      font-size: 20px;
+      cursor: pointer
+    }
+
+    .dpad button:hover {
+      border-color: #667eea
+    }
+
+    .dpad .center {
+      font-size: 18px
+    }
+
+    .under-preview {
+      margin-top: 14px;
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 10px
+    }
+
+    .color-toggle {
+      display: flex;
+      gap: 8px
+    }
+
+    .color-toggle .toggle-btn {
+      flex: 0 0 auto;
+      padding: 8px 14px
+    }
+
+    #colorInput {
+      width: 100%;
+      height: 44px;
+      padding: 0;
+      border: 2px solid #4a5568;
+      background: #2d3748;
+      border-radius: 8px;
+      cursor: pointer;
+      -webkit-appearance: none;
+      appearance: none;
+      overflow: hidden
+    }
+
+    #colorInput::-webkit-color-swatch-wrapper {
+      padding: 0
+    }
+
+    #colorInput::-webkit-color-swatch {
+      border: none;
+      border-radius: 6px
+    }
+
+    #colorInput::-moz-color-swatch {
+      border: none;
+      border-radius: 6px
+    }
+
+    #oskLabel {
+      cursor: pointer;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 0 !important;
+      font-weight: 600;
+      font-size: .9em;
+      color: #e2e8f0;
+      padding: 8px 0;
+      border-top: 1px solid #4a5568;
+      margin-top: 10px
+    }
+
+    #onscreenKeyboardContainer {
+      max-height: 0;
+      overflow: hidden;
+      transition: max-height .4s ease-in-out;
+      padding-top: 0
+    }
+
+    #onscreenKeyboardContainer.expanded {
+      max-height: 700px;
+      padding-top: 10px
+    }
+
+    #toggleIcon {
+      transform: rotate(0deg);
+      transition: transform .3s ease-in-out
+    }
+
+    #onscreenKeyboardContainer.expanded #toggleIcon {
+      transform: rotate(-180deg)
+    }
+
+    .keyboard-layout {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+      padding: 10px;
+      background: #2d3748;
+      border-radius: 8px;
+      border: 1px solid #4a5568;
+      font-size: 1.1em
+    }
+
+    .key-row {
+      display: flex;
+      width: 100%;
+      gap: 4px
+    }
+
+    .key-btn {
+      flex-grow: 1;
+      height: 45px;
+      padding: 0;
+      border: none;
+      border-radius: 4px;
+      background: #4a5568;
+      color: #e2e8f0;
+      font-weight: 500;
+      cursor: pointer;
+      text-align: center;
+      line-height: 45px;
+      position: relative;
+      font-family: inherit
+    }
+
+    .key-btn:hover {
+      background: #667eea
+    }
+
+    .key-btn.special {
+      background: #1a202c;
+      color: #cbd5e0;
+      flex-grow: 0;
+      width: auto;
+      padding: 0 10px;
+      font-size: .9em;
+      font-weight: 600
+    }
+
+    .key-row .space {
+      flex-grow: 6;
+      background: #1a202c
+    }
+
+    .key-row .space:hover {
+      background: #4a5568
+    }
+
+    .key-btn[data-char="Shift"] {
+      background: #667eea;
+      color: #fff
+    }
+
+    .key-btn[data-char="Shift"].active {
+      background: #48bb78
+    }
+
+    @media(max-width:1020px) {
+      .preview-split {
+        grid-template-columns: 1fr
+      }
+    }
+
+    @media(max-width:900px) {
+
+      .input-row,
+      .input-row-three-col {
+        grid-template-columns: 1fr
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <div class="container">
+    <h1>ESRI Font Symbol Exporter v3.5</h1>
+    <div id="loadingBanner" class="loading-banner"></div>
+    <input type="file" id="fontFileInput" accept=".ttf,.otf" multiple style="display:none" />
+    <!-- Input Section -->
+    <div class="input-section">
+      <div class="input-group" style="margin-bottom:20px">
+        <label for="fontSearch">Select ESRI Font <span id="fontCount"></span></label>
+        <div class="input-with-button-wrap">
+          <input type="text" id="fontSearch" placeholder="Search loaded fonts..." autocomplete="off" />
+          <button class="clear-font-btn" id="clearFontBtn" onclick="clearFontSelection()"
+            style="display:none">Clear</button>
+        </div>
+        <div id="fontDropdown" class="font-dropdown" style="display:none"></div>
+        <input type="hidden" id="fontSelect" />
+      </div>
+
+      <!-- Unified Inputs and Download -->
+      <div class="input-row">
+        <div class="input-group">
+          <label for="keyInput">Key</label>
+          <input type="text" id="keyInput" placeholder="A" maxlength="10" />
+        </div>
+        <div class="input-group">
+          <label for="decimalInput">Decimal</label>
+          <input type="number" id="decimalInput" placeholder="65" min="0" max="65535" />
+        </div>
+        <div class="input-group">
+          <label for="hexInput">Hex</label>
+          <input type="text" id="hexInput" placeholder="41" maxlength="6" />
+        </div>
+        <button class="btn-inline btn-download" id="downloadBtn" onclick="downloadSymbol()" disabled>Download</button>
+      </div>
+
+      <div class="input-group" style="margin-top:10px">
+        <label id="oskLabel">Export/Keyboard Options <span id="toggleIcon">▼</span></label>
+        <div id="onscreenKeyboardContainer" class="collapsible-content expanded">
+          <div class="input-row-three-col">
+            <div class="input-group">
+              <label>Export Format</label>
+              <div class="toggle-group">
+                <button class="toggle-btn active" data-format="svg">SVG</button>
+                <button class="toggle-btn" data-format="png">PNG</button>
+              </div>
+            </div>
+            <div class="input-group" id="sizeChooserWrapper">
+              <label for="svgSizeInput" id="sizeLabel">SVG Size (pixels)</label>
+              <input type="number" id="svgSizeInput" value="512" min="64" max="4096" step="64" />
+              <input type="number" id="sizeInput" value="512" min="64" max="4096" step="64" style="display:none" />
+            </div>
+            <div class="input-group"><label>&nbsp;</label>
+              <div></div>
+            </div>
+          </div>
+
+          <!-- On-Screen Keyboard -->
+          <div style="margin-top:20px;">
+            <label>On-Screen Keyboard</label>
+            <div id="onscreenKeyboard" class="keyboard-layout">
+              <div class="key-row">
+                <button class="key-btn" data-main="`" data-shift="~">`</button>
+                <button class="key-btn" data-main="1" data-shift="!">1</button>
+                <button class="key-btn" data-main="2" data-shift="@">2</button>
+                <button class="key-btn" data-main="3" data-shift="#">3</button>
+                <button class="key-btn" data-main="4" data-shift="$">4</button>
+                <button class="key-btn" data-main="5" data-shift="%">5</button>
+                <button class="key-btn" data-main="6" data-shift="^">6</button>
+                <button class="key-btn" data-main="7" data-shift="&">&</button>
+                <button class="key-btn" data-main="8" data-shift="*">8</button>
+                <button class="key-btn" data-main="9" data-shift="(">9</button>
+                <button class="key-btn" data-main="0" data-shift=")">0</button>
+                <button class="key-btn" data-main="-" data-shift="_">-</button>
+                <button class="key-btn" data-main="=" data-shift="+">=</button>
+                <button class="key-btn special" data-char="backspace">⌫ Backspace</button>
+              </div>
+              <div class="key-row">
+                <button class="key-btn special" data-char="tab">Tab</button>
+                <button class="key-btn" data-main="q" data-shift="Q">q</button>
+                <button class="key-btn" data-main="w" data-shift="W">w</button>
+                <button class="key-btn" data-main="e" data-shift="E">e</button>
+                <button class="key-btn" data-main="r" data-shift="R">r</button>
+                <button class="key-btn" data-main="t" data-shift="T">t</button>
+                <button class="key-btn" data-main="y" data-shift="Y">y</button>
+                <button class="key-btn" data-main="u" data-shift="U">u</button>
+                <button class="key-btn" data-main="i" data-shift="I">i</button>
+                <button class="key-btn" data-main="o" data-shift="O">o</button>
+                <button class="key-btn" data-main="p" data-shift="P">p</button>
+                <button class="key-btn" data-main="[" data-shift="{">[</button>
+                <button class="key-btn" data-main="]" data-shift="}">]</button>
+                <button class="key-btn" data-main="\" data-shift="|">\</button>
+              </div>
+              <div class="key-row">
+                <button class="key-btn special" data-char="caps">Caps</button>
+                <button class="key-btn" data-main="a" data-shift="A">a</button>
+                <button class="key-btn" data-main="s" data-shift="S">s</button>
+                <button class="key-btn" data-main="d" data-shift="D">d</button>
+                <button class="key-btn" data-main="f" data-shift="F">f</button>
+                <button class="key-btn" data-main="g" data-shift="G">g</button>
+                <button class="key-btn" data-main="h" data-shift="H">h</button>
+                <button class="key-btn" data-main="j" data-shift="J">j</button>
+                <button class="key-btn" data-main="k" data-shift="K">k</button>
+                <button class="key-btn" data-main="l" data-shift="L">l</button>
+                <button class="key-btn" data-main=";" data-shift=":">;</button>
+                <button class="key-btn" data-main="'" data-shift='"'>'</button>
+                <button class="key-btn special" data-char="enter">Enter ⏎</button>
+              </div>
+              <div class="key-row">
+                <button class="key-btn special" data-char="Shift">⇧ Shift</button>
+                <button class="key-btn" data-main="z" data-shift="Z">z</button>
+                <button class="key-btn" data-main="x" data-shift="X">x</button>
+                <button class="key-btn" data-main="c" data-shift="C">c</button>
+                <button class="key-btn" data-main="v" data-shift="V">v</button>
+                <button class="key-btn" data-main="b" data-shift="B">b</button>
+                <button class="key-btn" data-main="n" data-shift="N">n</button>
+                <button class="key-btn" data-main="m" data-shift="M">m</button>
+                <button class="key-btn" data-main="," data-shift="<">,</button>
+                <button class="key-btn" data-main="." data-shift=">">.</button>
+                <button class="key-btn" data-main="/" data-shift="?">/</button>
+                <button class="key-btn special" data-char="Shift">⇧ Shift</button>
+              </div>
+              <div class="key-row">
+                <button class="key-btn special" data-char="ctrl">Ctrl</button>
+                <button class="key-btn special" data-char="alt">Alt</button>
+                <button class="key-btn space" data-char="Space">Space</button>
+                <button class="key-btn special" data-char="alt">Alt</button>
+                <button class="key-btn special" data-char="ctrl">Ctrl</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div><!-- /input-section -->
+    <!-- Preview -->
+    <div class="preview-section">
+      <div class="preview-title">Preview</div>
+
+      <div class="preview-split">
+        <!-- Left: Live Preview -->
+        <div class="card">
+          <div class="card-inner" style="position:relative;">
+            <div id="previewCanvasHost"></div>
+          </div>
+        </div>
+
+        <!-- Right: Background & Symbol Controls -->
+        <div class="card" style="border-style:solid">
+          <div class="card-inner" style="flex-direction:column;gap:12px;">
+            <div class="bg-controls">
+
+              <div class="control-block">
+                <div class="control-title">Background Shape</div>
+                <div class="shape-toggle">
+                  <button class="shape-btn active" id="bgShapeCircle">○ Circle</button>
+                  <button class="shape-btn" id="bgShapeSquare">□ Square</button>
+                  <button class="shape-btn" id="bgBorderToggle">⬚ Border</button>
+                </div>
+                <div class="border-settings" id="borderControls">
+                  <label for="borderWidthInput">Border Width (px)</label>
+                  <input type="number" id="borderWidthInput" min="1" max="200" value="4" />
+                </div>
+              </div>
+
+              <div class="control-block">
+                <div class="control-title">Background Size</div>
+                <div class="size-row">
+                  <input type="range" id="bgSizeSlider" min="10" max="95" value="60" />
+                  <div class="unit-toggle">
+                    <button class="unit-btn active" id="unitPercent">% </button>
+                    <button class="unit-btn" id="unitPixels">px</button>
+                  </div>
+                </div>
+                <div style="color:#a0aec0;font-size:.85em;margin-top:8px">
+                  <span id="bgSizeLabel">%: 60</span>
+                </div>
+              </div>
+
+              <div class="control-block">
+                <div class="control-title">Position (Background & Symbol)</div>
+
+                <div class="dpad-row">
+                  <!-- Background D-pad -->
+                  <div>
+                    <div style="color:#cbd5e0;font-weight:600;margin-bottom:6px">Background</div>
+                    <div class="dpad">
+                      <div></div>
+                      <button id="dpadUp">⬆️</button>
+                      <div></div>
+                      <button id="dpadLeft">⬅️</button>
+                      <button id="dpadCenter" class="center">⏺️</button>
+                      <button id="dpadRight">➡️</button>
+                      <div></div>
+                      <button id="dpadDown">⬇️</button>
+                      <div></div>
+                    </div>
+                    <div style="color:#a0aec0;font-size:.85em;text-align:center;margin-top:6px">
+                      Offset: <span id="offsetReadout">0, 0</span> px
+                    </div>
+                    <div style="margin-top:8px;display:flex;justify-content:center;">
+                      <button id="dpadCenterToCanvas" class="unit-btn">Centre</button>
+                    </div>
+                  </div>
+
+                  <!-- Symbol D-pad -->
+                  <div>
+                    <div style="color:#cbd5e0;font-weight:600;margin-bottom:6px">Symbol</div>
+                    <div class="dpad">
+                      <div></div>
+                      <button id="symDpadUp">⬆️</button>
+                      <div></div>
+                      <button id="symDpadLeft">⬅️</button>
+                      <button id="symDpadCenter" class="center">⏺️</button>
+                      <button id="symDpadRight">➡️</button>
+                      <div></div>
+                      <button id="symDpadDown">⬇️</button>
+                      <div></div>
+                    </div>
+                    <div style="color:#a0aec0;font-size:.85em;text-align:center;margin-top:6px">
+                      Offset: <span id="symOffsetReadout">0, 0</span> px
+                    </div>
+                    <div style="margin-top:8px;display:flex;justify-content:center;">
+                      <button id="symCenterToCanvas" class="unit-btn">Centre</button>
+                    </div>
+                  </div>
+                </div>
+              </div> <!-- /control-block -->
+            </div> <!-- /bg-controls -->
+          </div> <!-- /card-inner -->
+        </div> <!-- /card -->
+      </div> <!-- /preview-split -->
+
+      <!-- Under-preview unified color control -->
+      <div class="under-preview">
+        <div class="color-toggle">
+          <button class="toggle-btn active" id="colorTargetSymbol">Symbol</button>
+          <button class="toggle-btn" id="colorTargetBackground">Background</button>
+          <button class="toggle-btn" id="colorTargetBorder">Border</button>
+        </div>
+        <input type="color" id="colorInput" value="#000000" />
+      </div>
+
+      <div class="empty-state" id="previewHint">Enter a character code to see the preview</div>
+    </div>
+  </div>
+  <script>
+    /* ---------- State ---------- */
+    let installedFonts = [];
+    let loadedFontFiles = {};
+    let loadedOpentypeFonts = {};
+    let currentFormat = 'svg';
+    let currentCharCode = null;
+    let currentFont = null;
+
+    // Colors
+    let symbolColor = '#000000';
+    let bgColor = '#ffffff';
+    let colorTarget = 'symbol';
+
+    // Background render options
+    let bgEnabled = true;
+    let bgShape = 'circle';
+    let bgSizeUnit = '%';
+    let bgSizeValue = 60;
+    let bgBorderEnabled = false;
+    let bgBorderColor = '#1a202c';
+    let bgBorderWidth = 4;
+
+    // Independent offsets
+    let bgOffsetX = 0, bgOffsetY = 0;
+    let symbolOffsetX = 0, symbolOffsetY = 0;
+    const dpadStep = 5;
+
+    // DOM refs
+    const fontSearch = document.getElementById('fontSearch');
+    const fontDropdown = document.getElementById('fontDropdown');
+    const fontSelect = document.getElementById('fontSelect');
+    const clearFontBtn = document.getElementById('clearFontBtn');
+    const fontFileInput = document.getElementById('fontFileInput');
+    const colorInput = document.getElementById('colorInput');
+    const colorTargetSymbolBtn = document.getElementById('colorTargetSymbol');
+    const colorTargetBgBtn = document.getElementById('colorTargetBackground');
+    const colorTargetBorderBtn = document.getElementById('colorTargetBorder');
+    const previewHost = document.getElementById('previewCanvasHost');
+    const previewHint = document.getElementById('previewHint');
+    const bgShapeCircleBtn = document.getElementById('bgShapeCircle');
+    const bgShapeSquareBtn = document.getElementById('bgShapeSquare');
+    const bgSizeSlider = document.getElementById('bgSizeSlider');
+    const unitPercentBtn = document.getElementById('unitPercent');
+    const unitPixelsBtn = document.getElementById('unitPixels');
+    const bgSizeLabel = document.getElementById('bgSizeLabel');
+    const offsetReadout = document.getElementById('offsetReadout');
+    const symOffsetReadout = document.getElementById('symOffsetReadout');
+    const downloadBtn = document.getElementById('downloadBtn');
+    const bgBorderToggleBtn = document.getElementById('bgBorderToggle');
+    const borderControls = document.getElementById('borderControls');
+    const borderWidthInput = document.getElementById('borderWidthInput');
+
+    // Use an offscreen canvas to align glyph export orientation with browser text rendering.
+    const glyphOrientationCache = new WeakMap();
+    let orientationCanvas = null;
+    let orientationCtx = null;
+
+    function ensureOrientationContext() {
+      if (!orientationCanvas) {
+        orientationCanvas = document.createElement('canvas');
+        orientationCanvas.width = orientationCanvas.height = 384;
+        orientationCtx = orientationCanvas.getContext('2d', { willReadFrequently: true });
+      }
+      return orientationCtx;
+    }
+
+    function heuristicFlipForFont(font) {
+      if (!font) { return true; }
+      const asc = font.ascender;
+      const desc = font.descender;
+      if (Number.isFinite(asc) && Number.isFinite(desc)) {
+        if (asc >= 0 && desc <= 0) { return true; }
+        if (asc <= 0 && desc >= 0) { return false; }
+      }
+      const head = font.tables?.head;
+      if (head) {
+        const { yMax, yMin } = head;
+        if (Number.isFinite(yMax) && Number.isFinite(yMin)) {
+          if (yMax >= 0 && yMin <= 0) { return true; }
+          if (yMax <= 0 && yMin >= 0) { return false; }
+        }
+      }
+      return true;
+    }
+
+    function shouldFlipGlyphYAxis(font, fontName, charVal, fontSize) {
+      if (!font) { return true; }
+      let glyphMap = glyphOrientationCache.get(font);
+      if (!glyphMap) {
+        glyphMap = new Map();
+        glyphOrientationCache.set(font, glyphMap);
+      }
+      if (glyphMap.has(charVal)) {
+        return glyphMap.get(charVal);
+      }
+      let flip = heuristicFlipForFont(font);
+      try {
+        flip = detectGlyphOrientation(font, fontName, charVal, fontSize);
+      } catch (err) {
+        console.warn('Failed to resolve glyph orientation', err);
+      }
+      glyphMap.set(charVal, flip);
+      return flip;
+    }
+
+    function detectGlyphOrientation(font, fontName, charVal, fontSize) {
+      const ctx = ensureOrientationContext();
+      if (!ctx || !orientationCanvas) { return true; }
+      const glyph = font.charToGlyph(charVal);
+      if (!glyph || glyph.index === 0) { return true; }
+      const canvasSize = orientationCanvas.width;
+      const evalFontSize = Math.max(32, Math.min(fontSize || canvasSize * 0.6, canvasSize * 0.6));
+      let effectiveName = fontName;
+      if (!effectiveName || !effectiveName.trim()) {
+        const fallbackName = font.names?.fullName;
+        if (fallbackName) {
+          effectiveName = fallbackName.en || '';
+          if (!effectiveName) {
+            for (const key in fallbackName) {
+              if (fallbackName[key]) {
+                effectiveName = fallbackName[key];
+                break;
+              }
+            }
+          }
+        }
+      }
+      if (!effectiveName) { effectiveName = 'sans-serif'; }
+      const safeFontName = String(effectiveName).replace(/"/g, '\\"');
+
+      const referenceProfile = captureTextProfile(ctx, orientationCanvas, safeFontName, charVal, evalFontSize);
+      const glyphPath = glyph.getPath(0, 0, evalFontSize);
+      const bounds = glyphPath.getBoundingBox();
+      const centerX = (bounds.x1 + bounds.x2) / 2;
+      const centerY = (bounds.y1 + bounds.y2) / 2;
+
+      const flipProfile = captureGlyphProfile(ctx, orientationCanvas, glyphPath, centerX, centerY, true);
+      const noFlipProfile = captureGlyphProfile(ctx, orientationCanvas, glyphPath, centerX, centerY, false);
+
+      const diffFlip = compareProfiles(referenceProfile, flipProfile);
+      const diffNoFlip = compareProfiles(referenceProfile, noFlipProfile);
+
+      if (!Number.isFinite(diffFlip) && Number.isFinite(diffNoFlip)) { return false; }
+      if (!Number.isFinite(diffNoFlip) && Number.isFinite(diffFlip)) { return true; }
+      if (!Number.isFinite(diffFlip) && !Number.isFinite(diffNoFlip)) { return heuristicFlipForFont(font); }
+
+      const heuristic = heuristicFlipForFont(font);
+      const epsilon = Math.max(diffFlip, diffNoFlip, 1) * 0.01;
+      if (Math.abs(diffFlip - diffNoFlip) <= epsilon) {
+        return heuristic;
+      }
+
+      return diffFlip <= diffNoFlip;
+    }
+
+    function captureTextProfile(ctx, canvas, fontName, charVal, fontSize) {
+      ctx.save();
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.fillStyle = '#000';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      const lowerName = (fontName || '').toLowerCase();
+      const isGeneric = lowerName === 'sans-serif' || lowerName === 'serif' || lowerName === 'monospace';
+      const family = isGeneric ? fontName : `"${fontName}"`;
+      ctx.font = `${fontSize}px ${family}`;
+      ctx.fillText(charVal, canvas.width / 2, canvas.height / 2);
+      const snapshot = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      ctx.restore();
+      return buildProfile(snapshot);
+    }
+
+    function captureGlyphProfile(ctx, canvas, path, centerX, centerY, flip) {
+      ctx.save();
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.fillStyle = '#000';
+      ctx.translate(canvas.width / 2, canvas.height / 2);
+      if (flip) { ctx.scale(1, -1); }
+      ctx.translate(-centerX, -centerY);
+      path.draw(ctx);
+      const snapshot = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      ctx.restore();
+      return buildProfile(snapshot);
+    }
+
+    function buildProfile(imageData) {
+      if (!imageData) { return null; }
+      const { data, width, height } = imageData;
+      const rows = new Array(height).fill(0);
+      for (let y = 0; y < height; y++) {
+        let sum = 0;
+        for (let x = 0; x < width; x++) {
+          const alpha = data[(y * width + x) * 4 + 3];
+          if (alpha > 0) { sum += alpha; }
+        }
+        rows[y] = sum;
+      }
+      let max = 0;
+      for (let i = 0; i < rows.length; i++) {
+        if (rows[i] > max) { max = rows[i]; }
+      }
+      if (max === 0) { return null; }
+      const threshold = max * 0.03;
+      let top = 0;
+      while (top < rows.length && rows[top] <= threshold) { top++; }
+      let bottom = rows.length - 1;
+      while (bottom >= 0 && rows[bottom] <= threshold) { bottom--; }
+      if (top >= bottom) { return null; }
+      const slice = rows.slice(top, bottom + 1);
+      return resampleProfile(slice, 64);
+    }
+
+    function resampleProfile(values, targetLength) {
+      if (!values || values.length === 0) { return null; }
+      if (values.length === targetLength) { return values.slice(); }
+      const result = new Array(targetLength).fill(0);
+      if (targetLength === 1) {
+        result[0] = values[Math.floor(values.length / 2)];
+        return result;
+      }
+      const scale = (values.length - 1) / (targetLength - 1);
+      for (let i = 0; i < targetLength; i++) {
+        const pos = i * scale;
+        const lower = Math.floor(pos);
+        const upper = Math.min(values.length - 1, lower + 1);
+        const t = pos - lower;
+        result[i] = values[lower] * (1 - t) + values[upper] * t;
+      }
+      return result;
+    }
+
+    function compareProfiles(a, b) {
+      if (!a || !b) { return Number.POSITIVE_INFINITY; }
+      const len = Math.min(a.length, b.length);
+      if (!len) { return Number.POSITIVE_INFINITY; }
+      let diff = 0;
+      for (let i = 0; i < len; i++) {
+        diff += Math.abs(a[i] - b[i]);
+      }
+      return diff / len;
+    }
+    function setColorTarget(target) {
+      if (target === 'background' && !bgEnabled) { target = 'symbol'; }
+      if (target === 'border' && (!bgEnabled || !bgBorderEnabled)) { target = bgEnabled ? 'background' : 'symbol'; }
+      colorTarget = target;
+      colorTargetSymbolBtn.classList.toggle('active', target === 'symbol');
+      colorTargetBgBtn.classList.toggle('active', target === 'background');
+      colorTargetBorderBtn.classList.toggle('active', target === 'border');
+      if (target === 'symbol') { colorInput.value = symbolColor; }
+      else if (target === 'background') { colorInput.value = bgColor; }
+      else if (target === 'border') { colorInput.value = bgBorderColor; }
+      syncColorTargetButtons();
+    }
+
+    function syncColorTargetButtons() {
+      colorTargetBgBtn.disabled = !bgEnabled;
+      colorTargetBorderBtn.disabled = !(bgEnabled && bgBorderEnabled);
+    }
+
+    function ensureValidColorTarget() {
+      if (colorTarget === 'background' && !bgEnabled) {
+        setColorTarget('symbol');
+      } else if (colorTarget === 'border' && (!bgEnabled || !bgBorderEnabled)) {
+        setColorTarget(bgEnabled ? 'background' : 'symbol');
+      }
+    }
+
+    function syncBorderUI() {
+      bgBorderToggleBtn.classList.toggle('active', bgEnabled && bgBorderEnabled);
+      bgBorderToggleBtn.disabled = !bgEnabled;
+      const borderActive = bgEnabled && bgBorderEnabled;
+      borderControls.style.display = borderActive ? 'flex' : 'none';
+      borderWidthInput.disabled = !borderActive;
+      borderWidthInput.value = bgBorderWidth;
+      syncColorTargetButtons();
+      ensureValidColorTarget();
+    }
+
+    function setBorderEnabled(enabled) {
+      bgBorderEnabled = enabled && bgEnabled;
+      syncBorderUI();
+      if (bgBorderEnabled) {
+        setColorTarget('border');
+      }
+      renderPreview();
+    }
+
+    function syncBackgroundUI() {
+      bgShapeCircleBtn.classList.toggle('active', bgEnabled && bgShape === 'circle');
+      bgShapeSquareBtn.classList.toggle('active', bgEnabled && bgShape === 'square');
+      bgShapeCircleBtn.setAttribute('aria-pressed', bgEnabled && bgShape === 'circle');
+      bgShapeSquareBtn.setAttribute('aria-pressed', bgEnabled && bgShape === 'square');
+      syncBorderUI();
+    }
+
+    function toggleBackgroundShape(shape) {
+      if (bgShape === shape && bgEnabled) {
+        bgEnabled = false;
+      } else {
+        bgShape = shape;
+        bgEnabled = true;
+      }
+      if (!bgEnabled && bgBorderEnabled) {
+        bgBorderEnabled = false;
+      }
+      syncBackgroundUI();
+      ensureValidColorTarget();
+      renderPreview();
+    }
+
+    /* ---------- Loader banner ---------- */
+    function reconstructLoadingBanner(totalFontCount = 0) {
+      const loadingBanner = document.getElementById('loadingBanner');
+      const statusMessage = totalFontCount > 0 ? `✓ ${totalFontCount} ArcGIS Fonts loaded and ready to use.` : '';
+      loadingBanner.innerHTML = `
+        <div class="header-button-row">
+          <button class="load-font-btn" onclick="loadArcGISFonts()">Load ArcGIS Fonts</button>
+          <button class="copy-path-btn" onclick="copyFontPath()"><span class="copy-path-btn-text">Copy ArcGIS Font path if needed</span></button>
+        </div>
+        <div id="loadStatus" class="load-status-bar">${statusMessage}</div>
+      `;
+    }
+
+    function copyFontPath() {
+      // Windows Explorer–friendly path
+      const path = 'C:\\Program Files\\ArcGIS\\Pro\\Resources\\Fonts';
+      const btn = event.target.closest('.copy-path-btn');
+      navigator.clipboard.writeText(path).then(() => {
+        const span = btn.querySelector('.copy-path-btn-text');
+        const original = 'Copy ArcGIS Font path if needed';
+        span.textContent = 'Path Copied!';
+        btn.classList.add('copied');
+        btn.classList.remove('glowing'); void btn.offsetWidth; btn.classList.add('glowing');
+        setTimeout(() => { span.textContent = original; btn.classList.remove('copied') }, 2000);
+        setTimeout(() => { btn.classList.remove('glowing') }, 800);
+      }).catch(() => {
+        const span = btn.querySelector('.copy-path-btn-text');
+        const original = 'Copy ArcGIS Font path if needed';
+        span.textContent = 'Failed!'; btn.style.backgroundColor = '#e53e3e';
+        setTimeout(() => { span.textContent = original; btn.style.backgroundColor = '' }, 2000);
+      });
+    }
+
+    /* ---------- Font selection ---------- */
+    function populateFontDropdown(filterText = '') {
+      const filtered = installedFonts.filter(f => f.toLowerCase().includes(filterText.toLowerCase()));
+      if (filtered.length === 0) {
+        fontDropdown.innerHTML = '<div class="no-results">No fonts loaded. Please load font files.</div>';
+      } else {
+        fontDropdown.innerHTML = filtered.map(font => `<div class="font-option" data-font="${font}">${font}</div>`).join('');
+        document.querySelectorAll('.font-option').forEach(el => {
+          el.addEventListener('click', () => selectFont(el.dataset.font));
+        });
+      }
+    }
+
+    function selectFont(fontName) {
+      fontSearch.value = fontName;
+      fontSelect.value = fontName;
+      currentFont = fontName;
+      fontDropdown.style.display = 'none';
+      clearFontBtn.style.display = 'block';
+      renderPreview();
+      updateDownloadAvailability();
+    }
+
+    function clearFontSelection() {
+      fontSearch.value = ''; fontSelect.value = ''; currentFont = null;
+      clearFontBtn.style.display = 'none'; populateFontDropdown(''); fontDropdown.style.display = 'block'; fontSearch.focus();
+      updateDownloadAvailability();
+    }
+
+    fontSearch.addEventListener('focus', function () { populateFontDropdown(this.value); fontDropdown.style.display = 'block'; });
+    fontSearch.addEventListener('input', function () { populateFontDropdown(this.value); fontDropdown.style.display = 'block'; if (this.value && fontSelect.value) { clearFontBtn.style.display = 'block'; } });
+    document.addEventListener('click', e => { if (!e.target.closest('.input-group')) fontDropdown.style.display = 'none'; });
+
+    /* ---------- Format toggle ---------- */
+    document.querySelectorAll('.toggle-btn[data-format]').forEach(btn => {
+      btn.addEventListener('click', function () {
+        document.querySelectorAll('.toggle-btn[data-format]').forEach(b => b.classList.remove('active'));
+        this.classList.add('active');
+        currentFormat = this.dataset.format;
+        const svgInput = document.getElementById('svgSizeInput');
+        const pngInput = document.getElementById('sizeInput');
+        const sizeLabel = document.getElementById('sizeLabel');
+        if (currentFormat === 'png') { pngInput.style.display = 'block'; svgInput.style.display = 'none'; sizeLabel.textContent = 'PNG Size (pixels)'; }
+        else { pngInput.style.display = 'none'; svgInput.style.display = 'block'; sizeLabel.textContent = 'SVG Size (pixels)'; }
+      });
+    });
+
+    /* ---------- Inputs & Keyboard ---------- */
+    const keyInput = document.getElementById('keyInput');
+    const decimalInput = document.getElementById('decimalInput');
+    const hexInput = document.getElementById('hexInput');
+    const keyboard = document.getElementById('onscreenKeyboard');
+    let isShifted = false;
+
+    function updateDownloadAvailability() {
+      const decimalValue = parseInt(decimalInput.value, 10);
+      if (Number.isFinite(decimalValue)) {
+        currentCharCode = decimalValue;
+      } else {
+        currentCharCode = null;
+      }
+      downloadBtn.disabled = !(currentFont && Number.isFinite(decimalValue));
+    }
+
+    // Sync three inputs both ways
+    keyInput.addEventListener('input', () => {
+      const v = keyInput.value;
+      if (!v) {
+        decimalInput.value = '';
+        hexInput.value = '';
+        renderPreview();
+        updateDownloadAvailability();
+        return;
+      }
+      let code;
+      if (v.toLowerCase() === 'space') code = 32;
+      else if (v.toUpperCase().startsWith('U+') && v.length > 2) code = parseInt(v.substring(2), 16);
+      else code = v.codePointAt(0);
+      if (Number.isFinite(code)) {
+        decimalInput.value = code;
+        hexInput.value = code.toString(16).toUpperCase().padStart(4, '0');
+      }
+      renderPreview();
+      updateDownloadAvailability();
+    });
+    decimalInput.addEventListener('input', () => {
+      const d = parseInt(decimalInput.value, 10);
+      if (Number.isFinite(d)) {
+        keyInput.value = (d === 32) ? 'Space' : String.fromCodePoint(d);
+        hexInput.value = d.toString(16).toUpperCase().padStart(4, '0');
+      } else { hexInput.value = ''; keyInput.value = ''; }
+      renderPreview();
+      updateDownloadAvailability();
+    });
+    hexInput.addEventListener('input', () => {
+      const h = parseInt(hexInput.value, 16);
+      if (Number.isFinite(h)) {
+        decimalInput.value = h;
+        keyInput.value = (h === 32) ? 'Space' : String.fromCodePoint(h);
+      } else { decimalInput.value = ''; keyInput.value = ''; }
+      renderPreview();
+      updateDownloadAvailability();
+    });
+
+    function updateKeyboardLabels() {
+      keyboard.querySelectorAll('.key-btn').forEach(btn => {
+        const main = btn.getAttribute('data-main');
+        const sh = btn.getAttribute('data-shift');
+        if (main) { btn.textContent = isShifted ? (sh || main) : main; }
+        else {
+          const ch = btn.getAttribute('data-char');
+          if (ch === 'backspace') btn.textContent = '⌫ Backspace';
+          if (ch === 'tab') btn.textContent = 'Tab';
+          if (ch === 'enter') btn.textContent = 'Enter ⏎';
+          if (ch === 'Shift') btn.textContent = '⇧ Shift';
+          if (ch === 'ctrl') btn.textContent = 'Ctrl';
+          if (ch === 'alt') btn.textContent = 'Alt';
+          if (ch === 'Space') btn.textContent = 'Space';
+        }
+      });
+    }
+
+    if (keyboard) {
+      keyboard.addEventListener('click', function (e) {
+        const btn = e.target.closest('.key-btn'); if (!btn) return;
+        const charType = btn.dataset.char;
+        if (charType === 'Shift') {
+          isShifted = !isShifted;
+          document.querySelectorAll('.key-btn[data-char="Shift"]').forEach(s => s.classList.toggle('active', isShifted));
+          updateKeyboardLabels();
+          return;
+        }
+        if (charType === 'backspace') { keyInput.value = ''; keyInput.dispatchEvent(new Event('input')); return; }
+        if (charType === 'Space') { keyInput.value = 'Space'; keyInput.dispatchEvent(new Event('input')); if (isShifted) { isShifted = false; document.querySelectorAll('.key-btn[data-char="Shift"]').forEach(s => s.classList.remove('active')); updateKeyboardLabels(); } return; }
+
+        const main = btn.getAttribute('data-main');
+        const sh = btn.getAttribute('data-shift');
+        if (main) {
+          let ch = isShifted ? (sh || main) : main;
+          if (ch.length === 1 && /[a-z]/i.test(main)) {
+            ch = isShifted ? ch.toUpperCase() : ch.toLowerCase();
+          }
+          keyInput.value = ch;
+          keyInput.dispatchEvent(new Event('input'));
+          if (isShifted) {
+            isShifted = false;
+            document.querySelectorAll('.key-btn[data-char="Shift"]').forEach(s => s.classList.remove('active'));
+            updateKeyboardLabels();
+          }
+        }
+      });
+    }
+    document.getElementById('oskLabel')?.addEventListener('click', () => {
+      document.getElementById('onscreenKeyboardContainer').classList.toggle('expanded');
+    });
+
+    /* ---------- Preview Rendering (SVG in host) ---------- */
+    function escapeXml(s) { return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+
+    function computeLayout(width, height) {
+      const topPad = Math.round(height * 0.08);
+      const availableHeight = Math.max(1, height - topPad);
+      const baseSpan = Math.max(1, Math.min(width, availableHeight));
+      const centreX = Math.round(width / 2);
+      const centreLine = Math.round(topPad + baseSpan * 0.25);
+      const bgSizePx = (bgSizeUnit === '%')
+        ? Math.max(8, Math.round(baseSpan * (bgSizeValue / 100)))
+        : Math.max(8, Math.round(bgSizeValue));
+      const symbolFontSize = Math.round(baseSpan * 0.35);
+
+      return {
+        width,
+        height,
+        centreX,
+        centreY: centreLine,
+        crosshair: `
+          <line x1="0" y1="${Math.round(height / 2)}" x2="${width}" y2="${Math.round(height / 2)}" stroke="#a0aec0" stroke-width="1" stroke-dasharray="4 4" opacity="0.6"/>
+          <line x1="${centreX}" y1="0" x2="${centreX}" y2="${height}" stroke="#a0aec0" stroke-width="1" stroke-dasharray="4 4" opacity="0.6"/>
+        `,
+        background: {
+          cx: centreX + bgOffsetX,
+          cy: centreLine + bgOffsetY,
+          size: bgSizePx
+        },
+        symbol: {
+          cx: centreX + symbolOffsetX,
+          cy: centreLine + symbolOffsetY,
+          fontSize: symbolFontSize
+        }
+      };
+    }
+
+    function buildBackgroundMarkup(layout) {
+      if (!bgEnabled) { return ''; }
+      const { cx, cy, size } = layout.background;
+      const strokeLineJoin = (bgBorderEnabled && bgShape === 'square') ? ' stroke-linejoin="round"' : '';
+      const strokeAttrs = bgBorderEnabled
+        ? ` stroke="${bgBorderColor}" stroke-width="${bgBorderWidth}"${strokeLineJoin}`
+        : ' stroke="none"';
+      if (bgShape === 'circle') {
+        return `<circle cx="${cx}" cy="${cy}" r="${Math.round(size / 2)}" fill="${bgColor}"${strokeAttrs}/>`;
+      }
+      if (bgShape === 'square') {
+        const half = Math.round(size / 2);
+        return `<rect x="${Math.round(cx - half)}" y="${Math.round(cy - half)}" width="${size}" height="${size}" rx="${Math.round(size * 0.1)}" fill="${bgColor}"${strokeAttrs}/>`;
+      }
+      return '';
+    }
+
+    function buildGlyphMarkup(font, fontName, charVal, symbolLayout) {
+      try {
+        const glyph = font.charToGlyph(charVal);
+        if (!glyph || glyph.index === 0) { return null; }
+        const basePath = glyph.getPath(0, 0, symbolLayout.fontSize);
+        const pathData = basePath.toPathData(3);
+        const bounds = basePath.getBoundingBox();
+        const centerX = (bounds.x1 + bounds.x2) / 2;
+        const centerY = (bounds.y1 + bounds.y2) / 2;
+        const translateToCenter = `translate(${(-centerX).toFixed(2)}, ${(-centerY).toFixed(2)})`;
+        const translateToTarget = `translate(${symbolLayout.cx.toFixed(2)}, ${symbolLayout.cy.toFixed(2)})`;
+        const flipTransform = shouldFlipGlyphYAxis(font, fontName, charVal, symbolLayout.fontSize) ? 'scale(1,-1)' : '';
+        const transformParts = [translateToTarget, flipTransform, translateToCenter].filter(Boolean);
+        return `
+          <g transform="${transformParts.join(' ')}">
+            <path d="${pathData}" fill="${symbolColor}"/>
+          </g>
+        `;
+      } catch (err) {
+        console.error('Failed to convert glyph to path', err);
+        return null;
+      }
+    }
+
+    function buildSymbolMarkup(layout, { useGlyph } = {}) {
+      const code = parseInt(decimalInput.value, 10);
+      if (!Number.isFinite(code)) { return null; }
+      const charVal = String.fromCodePoint(code);
+      let glyphMarkup = null;
+      if (useGlyph && loadedOpentypeFonts[currentFont]) {
+        glyphMarkup = buildGlyphMarkup(loadedOpentypeFonts[currentFont], currentFont, charVal, layout.symbol);
+      }
+      if (glyphMarkup) {
+        return glyphMarkup;
+      }
+      return `
+        <text x="${layout.symbol.cx}" y="${layout.symbol.cy}" fill="${symbolColor}"
+              font-family="${currentFont}, sans-serif"
+              font-size="${layout.symbol.fontSize}"
+              text-anchor="middle" dominant-baseline="central">${escapeXml(charVal)}</text>
+      `;
+    }
+
+    function composeSymbolSVG(width, height, { includeCrosshair = false, useGlyph = false } = {}) {
+      if (!currentFont) { return null; }
+      const layout = computeLayout(width, height);
+      const symbolMarkup = buildSymbolMarkup(layout, { useGlyph });
+      if (!symbolMarkup) {
+        return null;
+      }
+      const bgMarkup = buildBackgroundMarkup(layout);
+      const crosshairMarkup = includeCrosshair ? layout.crosshair : '';
+      return `
+        <svg width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" xmlns="http://www.w3.org/2000/svg">
+          ${crosshairMarkup}
+          ${bgMarkup}
+          ${symbolMarkup}
+        </svg>
+      `.trim();
+    }
+
+    function renderPreview() {
+      const width = previewHost.clientWidth || 520;
+      const height = previewHost.clientHeight || 288;
+      const svgMarkup = composeSymbolSVG(width, height, { includeCrosshair: true, useGlyph: false });
+      if (!svgMarkup) {
+        previewHost.innerHTML = '';
+        previewHint.style.display = 'block';
+      } else {
+        previewHint.style.display = 'none';
+        previewHost.innerHTML = svgMarkup;
+      }
+    }
+
+    /* ---------- D-pads & Centre buttons ---------- */
+    document.getElementById('dpadUp').addEventListener('click', () => { bgOffsetY -= dpadStep; updateOffsetsUI(); renderPreview(); });
+    document.getElementById('dpadDown').addEventListener('click', () => { bgOffsetY += dpadStep; updateOffsetsUI(); renderPreview(); });
+    document.getElementById('dpadLeft').addEventListener('click', () => { bgOffsetX -= dpadStep; updateOffsetsUI(); renderPreview(); });
+    document.getElementById('dpadRight').addEventListener('click', () => { bgOffsetX += dpadStep; updateOffsetsUI(); renderPreview(); });
+    document.getElementById('dpadCenter').addEventListener('click', () => { bgOffsetX = 0; bgOffsetY = 0; updateOffsetsUI(); renderPreview(); });
+
+    document.getElementById('symDpadUp').addEventListener('click', () => { symbolOffsetY -= dpadStep; updateOffsetsUI(); renderPreview(); });
+    document.getElementById('symDpadDown').addEventListener('click', () => { symbolOffsetY += dpadStep; updateOffsetsUI(); renderPreview(); });
+    document.getElementById('symDpadLeft').addEventListener('click', () => { symbolOffsetX -= dpadStep; updateOffsetsUI(); renderPreview(); });
+    document.getElementById('symDpadRight').addEventListener('click', () => { symbolOffsetX += dpadStep; updateOffsetsUI(); renderPreview(); });
+    document.getElementById('symDpadCenter').addEventListener('click', () => { symbolOffsetX = 0; symbolOffsetY = 0; updateOffsetsUI(); renderPreview(); });
+
+    function getCanvasMetrics() {
+      const hostW = previewHost.clientWidth || 520;
+      const hostH = previewHost.clientHeight || 288;
+      const layout = computeLayout(hostW, hostH);
+      return {
+        hostW,
+        hostH,
+        trueCx: layout.centreX,
+        targetCyLine: layout.centreY
+      };
+    }
+
+    document.getElementById('dpadCenterToCanvas')?.addEventListener('click', () => {
+      const { targetCyLine } = getCanvasMetrics();
+      const trueCy = Math.round((previewHost.clientHeight || 288) / 2);
+      bgOffsetX = 0;
+      bgOffsetY = trueCy - targetCyLine;
+      updateOffsetsUI();
+      renderPreview();
+    });
+
+    document.getElementById('symCenterToCanvas')?.addEventListener('click', () => {
+      const { targetCyLine } = getCanvasMetrics();
+      const trueCy = Math.round((previewHost.clientHeight || 288) / 2);
+      symbolOffsetX = 0;
+      symbolOffsetY = trueCy - targetCyLine;
+      updateOffsetsUI();
+      renderPreview();
+    });
+
+    function updateOffsetsUI() {
+      offsetReadout.textContent = `${bgOffsetX}, ${bgOffsetY}`;
+      symOffsetReadout.textContent = `${symbolOffsetX}, ${symbolOffsetY}`;
+    }
+
+    /* ---------- Downloads ---------- */
+    function downloadSymbol() {
+      if (!currentFont || !currentCharCode) { alert('Please select a font and enter a valid character code before downloading.'); return; }
+      if (currentFormat === 'svg') { downloadSVG(); } else { downloadPNG(); }
+    }
+
+    function downloadSVG() {
+      const size = parseInt(document.getElementById('svgSizeInput').value, 10) || 512;
+      const svgMarkup = composeSymbolSVG(size, size, { includeCrosshair: false, useGlyph: true });
+      if (!svgMarkup) {
+        alert('Unable to build SVG for this character. Please ensure the glyph exists in the selected font.');
+        return;
+      }
+      const blob = new Blob([svgMarkup], { type: 'image/svg+xml' });
+      downloadBlob(blob, `${currentFont.replace(/\s+/g, '_')}_${currentCharCode}.svg`);
+    }
+
+    function downloadPNG() {
+      const size = parseInt(document.getElementById('sizeInput').value, 10) || 512;
+      const svgMarkup = composeSymbolSVG(size, size, { includeCrosshair: false, useGlyph: true });
+      if (!svgMarkup) {
+        alert('Unable to build PNG for this character. Please ensure the glyph exists in the selected font.');
+        return;
+      }
+
+      const svgBlob = new Blob([svgMarkup], { type: 'image/svg+xml' });
+      const url = URL.createObjectURL(svgBlob);
+
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        canvas.width = size; canvas.height = size;
+        const ctx = canvas.getContext('2d');
+        ctx.clearRect(0, 0, size, size);
+        ctx.drawImage(img, 0, 0);
+        canvas.toBlob(b => {
+          downloadBlob(b, `${currentFont.replace(/\s+/g, '_')}_${currentCharCode}.png`);
+          URL.revokeObjectURL(url);
+        });
+      };
+      img.onerror = () => {
+        URL.revokeObjectURL(url);
+        alert('Unable to rasterise the symbol SVG. Please try again.');
+      };
+      img.src = url;
+    }
+
+    function downloadBlob(blob, filename) {
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = filename;
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    }
+
+    /* ---------- Font loading ---------- */
+    async function loadFontFiles(event) {
+      const files = event.target.files;
+      if (!files || files.length === 0) { reconstructLoadingBanner(installedFonts.length); return; }
+      const loadingBanner = document.getElementById('loadingBanner');
+      loadingBanner.innerHTML = `
+        <div class="header-button-row">
+          <button class="load-font-btn">Loading ${files.length} files...</button>
+          <button class="copy-path-btn" onclick="copyFontPath()"><span class="copy-path-btn-text">Copy ArcGIS Font path if needed</span></button>
+        </div>
+        <div id="loadStatus" class="load-status-bar">Please wait...</div>
+      `;
+      let successCount = 0; const newFonts = [];
+      for (const file of files) {
+        try {
+          const arrayBuffer = await file.arrayBuffer();
+          const fontName = file.name.replace(/\.(ttf|otf)$/i, '');
+          if (installedFonts.includes(fontName) && loadedFontFiles[fontName]) { successCount++; continue; }
+          const opentypeFont = opentype.parse(arrayBuffer);
+          const fontFace = new FontFace(fontName, arrayBuffer);
+          await fontFace.load(); document.fonts.add(fontFace);
+          loadedFontFiles[fontName] = { data: arrayBuffer, fileName: file.name, fontFace };
+          loadedOpentypeFonts[fontName] = opentypeFont;
+          newFonts.push(fontName); successCount++;
+        } catch (e) { console.error('Failed to load', file.name, e); }
+      }
+      installedFonts = [...new Set([...installedFonts, ...newFonts])].sort();
+      reconstructLoadingBanner(installedFonts.length);
+      document.getElementById('fontCount').textContent = `(${installedFonts.length} available)`;
+      populateFontDropdown('');
+    }
+    function loadArcGISFonts() { fontFileInput.click(); }
+
+    /* ---------- Init ---------- */
+    window.addEventListener('load', () => {
+      reconstructLoadingBanner(0);
+      fontFileInput.addEventListener('change', loadFontFiles);
+      colorTargetSymbolBtn.addEventListener('click', () => setColorTarget('symbol'));
+      colorTargetBgBtn.addEventListener('click', () => setColorTarget('background'));
+      colorTargetBorderBtn.addEventListener('click', () => setColorTarget('border'));
+      colorInput.addEventListener('input', () => {
+        const val = colorInput.value;
+        if (colorTarget === 'symbol') { symbolColor = val; }
+        else if (colorTarget === 'background') { bgColor = val; }
+        else if (colorTarget === 'border') { bgBorderColor = val; }
+        renderPreview();
+      });
+
+      bgBorderToggleBtn.addEventListener('click', () => { setBorderEnabled(!bgBorderEnabled); });
+      borderWidthInput.addEventListener('input', () => {
+        let width = parseInt(borderWidthInput.value, 10);
+        if (!Number.isFinite(width)) { width = bgBorderWidth; }
+        width = Math.max(1, Math.min(200, width));
+        bgBorderWidth = width;
+        borderWidthInput.value = bgBorderWidth;
+        if (bgBorderEnabled) { renderPreview(); }
+      });
+
+      // BG size unit + slider
+      document.getElementById('unitPercent').addEventListener('click', () => {
+        bgSizeUnit = '%'; unitPercentBtn.classList.add('active'); unitPixelsBtn.classList.remove('active');
+        bgSizeSlider.min = 10; bgSizeSlider.max = 95; if (bgSizeValue > 95) { bgSizeValue = 60; } bgSizeSlider.value = bgSizeValue; updateBgSizeLabel(); renderPreview();
+      });
+      document.getElementById('unitPixels').addEventListener('click', () => {
+        bgSizeUnit = 'px'; unitPixelsBtn.classList.add('active'); unitPercentBtn.classList.remove('active');
+        bgSizeSlider.min = 16; bgSizeSlider.max = 1024; if (bgSizeValue < 16) { bgSizeValue = 200; } bgSizeSlider.value = bgSizeValue; updateBgSizeLabel(); renderPreview();
+      });
+      bgSizeSlider.addEventListener('input', () => { bgSizeValue = parseInt(bgSizeSlider.value, 10); updateBgSizeLabel(); renderPreview(); });
+      function updateBgSizeLabel() { bgSizeLabel.textContent = (bgSizeUnit === '%' ? '%: ' : 'px: ') + bgSizeValue; }
+
+      // BG shape
+      bgShapeCircleBtn.addEventListener('click', () => toggleBackgroundShape('circle'));
+      bgShapeSquareBtn.addEventListener('click', () => toggleBackgroundShape('square'));
+
+      syncBackgroundUI();
+      setColorTarget('symbol');
+      updateKeyboardLabels();
+      updateOffsetsUI();
+      renderPreview();
+      updateDownloadAvailability();
+    });
+  </script>
+</body>
+
+</html>
