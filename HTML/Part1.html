@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>ESRI Font Symbol Exporter v3.6</title>
+  <title>ESRI Font Symbol Exporter v3.5</title>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/opentype.js/1.3.4/opentype.min.js"></script>
   <style>
     *{margin:0;padding:0;box-sizing:border-box}
@@ -30,10 +30,12 @@
     .clear-font-btn{background:#667eea;color:#fff;border:none;padding:8px 16px;border-radius:6px;cursor:pointer;font-size:.85em;font-weight:600;z-index:1;height:44px}
     .clear-font-btn:hover{background:#5568d3}
 
-    /* Adjusted 4-column row after removing Preview */
-    .input-row{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px;align-items:end}
+    /* Unified row for Key, Decimal, Hex, Preview, Download (equal widths) */
+    .input-row{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:20px;align-items:end}
     .btn-inline{width:100%;height:44px;border:none;border-radius:8px;font-weight:700;cursor:pointer;transition:.15s}
     .btn-inline:active{transform:translateY(1px)}
+    .btn-preview{background:#667eea;color:#fff}
+    .btn-preview:hover{background:#5568d3}
     .btn-download{background:#48bb78;color:#fff}
     .btn-download:hover{background:#38a169}
     .btn-download:disabled{background:#4a5568;cursor:not-allowed}
@@ -63,8 +65,6 @@
     .shape-toggle{display:flex;gap:8px}
     .shape-btn{flex:1;padding:10px;border:2px solid #4a5568;background:#1a202c;color:#e2e8f0;border-radius:8px;cursor:pointer;font-weight:700}
     .shape-btn.active{border-color:#667eea;background:#2d3478a0}
-    .shape-btn.toggled{background:#667eea;color:#fff;border-color:#667eea}
-
     .size-row{display:grid;grid-template-columns:1fr auto;align-items:center;gap:10px}
     .size-row .unit-toggle{display:flex;gap:8px}
     .unit-btn{padding:8px 10px;border:2px solid #4a5568;background:#1a202c;color:#e2e8f0;border-radius:8px;cursor:pointer;font-weight:600}
@@ -85,40 +85,29 @@
     #colorInput::-webkit-color-swatch{border:none;border-radius:6px}
     #colorInput::-moz-color-swatch{border:none;border-radius:6px}
 
+    #oskLabel{cursor:pointer;display:flex;justify-content:space-between;align-items:center;margin-bottom:0!important;font-weight:600;font-size:.9em;color:#e2e8f0;padding:8px 0;border-top:1px solid #4a5568;margin-top:10px}
+    #onscreenKeyboardContainer{max-height:0;overflow:hidden;transition:max-height .4s ease-in-out;padding-top:0}
+    #onscreenKeyboardContainer.expanded{max-height:700px;padding-top:10px}
+    #toggleIcon{transform:rotate(0deg);transition:transform .3s ease-in-out}
+    #onscreenKeyboardContainer.expanded #toggleIcon{transform:rotate(-180deg)}
+    .keyboard-layout{display:flex;flex-wrap:wrap;gap:4px;padding:10px;background:#2d3748;border-radius:8px;border:1px solid #4a5568;font-size:1.1em}
+    .key-row{display:flex;width:100%;gap:4px}
+    .key-btn{flex-grow:1;height:45px;padding:0;border:none;border-radius:4px;background:#4a5568;color:#e2e8f0;font-weight:500;cursor:pointer;text-align:center;line-height:45px;position:relative;font-family:inherit}
+    .key-btn:hover{background:#667eea}
+    .key-btn.special{background:#1a202c;color:#cbd5e0;flex-grow:0;width:auto;padding:0 10px;font-size:.9em;font-weight:600}
+    .key-row .space{flex-grow:6;background:#1a202c}
+    .key-row .space:hover{background:#4a5568}
+    .key-btn[data-char="Shift"]{background:#667eea;color:#fff}
+    .key-btn[data-char="Shift"].active{background:#48bb78}
+
     @media(max-width:1020px){.preview-split{grid-template-columns:1fr}}
-    @media(max-width:900px){.input-row,.input-row-three-col{grid-template-columns:1fr}}
+    @media(max-width:900px){
+      .input-row,.input-row-three-col{grid-template-columns:1fr}
+    }
   </style>
 </head>
 <body>
   <div class="container">
-    <h1>ESRI Font Symbol Exporter v3.6</h1>
+    <h1>ESRI Font Symbol Exporter v3.5</h1>
     <div id="loadingBanner" class="loading-banner"></div>
     <input type="file" id="fontFileInput" accept=".ttf,.otf" multiple style="display:none"/>
-
-    <div class="input-section">
-      <div class="input-group" style="margin-bottom:20px">
-        <label for="fontSearch">Select ESRI Font <span id="fontCount"></span></label>
-        <div class="input-with-button-wrap">
-          <input type="text" id="fontSearch" placeholder="Search loaded fonts..." autocomplete="off"/>
-          <button class="clear-font-btn" id="clearFontBtn" onclick="clearFontSelection()" style="display:none">Clear</button>
-        </div>
-        <div id="fontDropdown" class="font-dropdown" style="display:none"></div>
-        <input type="hidden" id="fontSelect"/>
-      </div>
-
-      <!-- Unified Inputs and Download -->
-      <div class="input-row">
-        <div class="input-group">
-          <label for="keyInput">Key</label>
-          <input type="text" id="keyInput" placeholder="A" maxlength="10"/>
-        </div>
-        <div class="input-group">
-          <label for="decimalInput">Decimal</label>
-          <input type="number" id="decimalInput" placeholder="65" min="0" max="65535"/>
-        </div>
-        <div class="input-group">
-          <label for="hexInput">Hex</label>
-          <input type="text" id="hexInput" placeholder="41" maxlength="6"/>
-        </div>
-        <button class="btn-inline btn-download" id="downloadBtn" onclick="downloadSymbol()" disabled>Download</button>
-      </div>
