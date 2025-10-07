@@ -4,7 +4,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>ESRI Font Symbol Exporter v3.5</title>
+  <title>ESRI Font Symbol Exporter v1.0</title>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/opentype.js/1.3.4/opentype.min.js"></script>
   <style>
     * {
@@ -452,6 +452,35 @@
       font-size: 18px
     }
 
+    .dpad-step-buttons {
+      display: flex;
+      gap: 8px;
+      justify-content: center;
+      flex-wrap: wrap;
+      width: 100%
+    }
+
+    .dpad-step-btn {
+      min-width: 38px;
+      padding: 8px 12px;
+      border-radius: 8px;
+      border: 2px solid #3182ce;
+      background: #2b6cb0;
+      color: #e2e8f0;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background .2s, border-color .2s, transform .1s
+    }
+
+    .dpad-step-btn:hover {
+      background: #2c7fb8
+    }
+
+    .dpad-step-btn.active {
+      background: #38a169;
+      border-color: #2f855a
+    }
+
     .under-preview {
       margin-top: 14px;
       display: grid;
@@ -614,7 +643,7 @@
 
 <body>
   <div class="container">
-    <h1>ESRI Font Symbol Exporter v3.5</h1>
+    <h1>ESRI Font Symbol Exporter v1.0</h1>
     <div id="loadingBanner" class="loading-banner"></div>
     <input type="file" id="fontFileInput" accept=".ttf,.otf" multiple style="display:none" />
     <!-- Input Section -->
@@ -790,11 +819,19 @@
               </div>
 
               <div class="control-block">
-                <div class="control-title">Position (Background & Symbol)</div>
-
+                <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:10px;align-items:center">
+                  <div style="color:#cbd5e0;font-weight:600;font-size:.9em;text-align:center;width:100%">D-pad Step (px)</div>
+                  <div class="dpad-step-buttons" role="group" aria-label="D-pad step size">
+                    <button type="button" class="dpad-step-btn" data-dpad-step="1">1</button>
+                    <button type="button" class="dpad-step-btn" data-dpad-step="2">2</button>
+                    <button type="button" class="dpad-step-btn" data-dpad-step="3">3</button>
+                    <button type="button" class="dpad-step-btn" data-dpad-step="4">4</button>
+                    <button type="button" class="dpad-step-btn active" data-dpad-step="5">5</button>
+                  </div>
+                </div>
                 <div class="dpad-row">
                   <!-- Background D-pad -->
-                  <div>
+                  <div style="text-align:center">
                     <div style="color:#cbd5e0;font-weight:600;margin-bottom:6px">Background</div>
                     <div class="dpad">
                       <div></div>
@@ -816,7 +853,7 @@
                   </div>
 
                   <!-- Symbol D-pad -->
-                  <div>
+                  <div style="text-align:center">
                     <div style="color:#cbd5e0;font-weight:600;margin-bottom:6px">Symbol</div>
                     <div class="dpad">
                       <div></div>
@@ -882,7 +919,7 @@
     // Independent offsets
     let bgOffsetX = 0, bgOffsetY = 0;
     let symbolOffsetX = 0, symbolOffsetY = 0;
-    const dpadStep = 5;
+    let dpadStep = 5;
 
     // DOM refs
     const fontSearch = document.getElementById('fontSearch');
@@ -908,6 +945,7 @@
     const bgBorderToggleBtn = document.getElementById('bgBorderToggle');
     const borderControls = document.getElementById('borderControls');
     const borderWidthInput = document.getElementById('borderWidthInput');
+    const dpadStepButtons = Array.from(document.querySelectorAll('[data-dpad-step]'));
 
     // Use an offscreen canvas to align glyph export orientation with browser text rendering.
     const glyphOrientationCache = new WeakMap();
@@ -1484,6 +1522,24 @@
       }
     }
 
+    function updateDpadStep(value) {
+      const parsed = parseInt(value, 10);
+      if (!Number.isFinite(parsed)) { return; }
+      const clamped = Math.max(1, Math.min(5, parsed));
+      dpadStep = clamped;
+      dpadStepButtons.forEach(btn => {
+        const isActive = btn.dataset.dpadStep === String(clamped);
+        btn.classList.toggle('active', isActive);
+        btn.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+      });
+    }
+
+    dpadStepButtons.forEach(btn => {
+      btn.addEventListener('click', () => {
+        updateDpadStep(btn.dataset.dpadStep);
+      });
+    });
+
     /* ---------- D-pads & Centre buttons ---------- */
     document.getElementById('dpadUp').addEventListener('click', () => { bgOffsetY -= dpadStep; updateOffsetsUI(); renderPreview(); });
     document.getElementById('dpadDown').addEventListener('click', () => { bgOffsetY += dpadStep; updateOffsetsUI(); renderPreview(); });
@@ -1660,6 +1716,10 @@
       bgShapeCircleBtn.addEventListener('click', () => toggleBackgroundShape('circle'));
       bgShapeSquareBtn.addEventListener('click', () => toggleBackgroundShape('square'));
 
+      const initialStepBtn = dpadStepButtons.find(btn => btn.classList.contains('active')) || dpadStepButtons[0];
+      if (initialStepBtn) {
+        updateDpadStep(initialStepBtn.dataset.dpadStep);
+      }
       syncBackgroundUI();
       setColorTarget('symbol');
       updateKeyboardLabels();
